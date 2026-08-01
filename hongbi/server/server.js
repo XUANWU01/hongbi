@@ -63,6 +63,18 @@ function sendJSON(res, code, obj) {
 }
 
 function rowToSet(r) {
+  const raw = safeParse(r.questions, []);
+  // 归一化：补齐 type 字段（老数据/种子数据可能没有），选项 >= 2 即选择题
+  const questions = raw.map(q => {
+    const options = Array.isArray(q && q.options) ? q.options.map(o => String(o)) : [];
+    return {
+      q: String((q && q.q) || ''),
+      options,
+      answer: String((q && q.answer) || ''),
+      explanation: String((q && q.explanation) || ''),
+      type: options.length >= 2 ? 'choice' : 'text'
+    };
+  });
   return {
     id: r.id,
     title: r.title,
@@ -72,7 +84,7 @@ function rowToSet(r) {
     source: r.source,
     owner: r.owner,
     createdAt: r.created_at,
-    questions: safeParse(r.questions, [])
+    questions
   };
 }
 function safeParse(s, fb) { try { return JSON.parse(s); } catch (e) { return fb; } }

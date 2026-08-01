@@ -714,7 +714,9 @@ function renderQuizBody() {
 
   let optionsHtml = '';
   let actionHtml = '';
-  if (q.type === 'choice' && q.options.length >= 2) {
+  // 选择题判定：有 >= 2 个选项即为选择题（兼容云端数据可能缺 type 字段的情况）
+  const isChoice = Array.isArray(q.options) && q.options.length >= 2;
+  if (isChoice) {
     optionsHtml = '<div class="q-options">' + q.options.map((o, i) =>
       '<button class="q-option" data-action="pick" data-oi="' + i + '" data-idx="' + idx + '">' +
       '<span class="opt-letter">' + 'ABCDEFGH'[i] + '</span><span>' + esc(o) + '</span></button>'
@@ -725,7 +727,7 @@ function renderQuizBody() {
 
   body.innerHTML = '' +
     '<div class="q-card">' +
-      '<div class="q-tag">' + (q.type === 'choice' ? '选择题' : '简答 / 填空') + '&nbsp;·&nbsp;' + num + ' / ' + s.order.length + '</div>' +
+      '<div class="q-tag">' + (isChoice ? '选择题' : '简答 / 填空') + '&nbsp;·&nbsp;' + num + ' / ' + s.order.length + '</div>' +
       '<p class="q-text">' + esc(q.q) + '</p>' +
       optionsHtml +
       '<div id="q-answer-zone"></div>' +
