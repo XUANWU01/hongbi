@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light">
+<meta name="description" content="红笔 · 上传你的题库，贡献给有同样需求的人，或建立自己的私库。">
+<title>红笔 · 刷题题库</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23d63b2b'/%3E%3Ctext x='16' y='23' font-size='18' text-anchor='middle' fill='%23faf6ec' font-family='serif' font-weight='900'%3E红%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;900&family=ZCOOL+XiaoWei&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="brand" href="#/home" aria-label="红笔首页">
+      <span class="brand-mark">红</span>
+      <span class="brand-name">红笔<em>HONGBI</em></span>
+    </a>
+    <nav class="mainnav" id="mainnav" aria-label="主导航">
+      <a href="#/home" data-nav="home">工作台</a>
+      <a href="#/library" data-nav="library">题库广场</a>
+      <a href="#/mine" data-nav="mine">我的题库</a>
+      <a href="#/wrong" data-nav="wrong">错题本<span class="nav-badge" id="wrong-badge" hidden></span></a>
+    </nav>
+    <a class="btn btn-primary btn-upload" href="#/upload">＋ 上传题库</a>
+  </div>
+</header>
+
+<main id="view" class="view" tabindex="-1"></main>
+
+<footer class="footer">
+  <p>红笔 · 本地优先的刷题工具 —— 数据保存在你的浏览器中。</p>
+  <p class="footer-note">共享协议：上传时你可选择把题库合并进「公共主题库」供有同样需求的人使用，或存入仅自己可见的私库。</p>
+</footer>
+
+<div id="modal-root"></div>
+<div id="toast-root" aria-live="polite"></div>
+
+<script src="js/data.js"></script>
+<script src="js/parser.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

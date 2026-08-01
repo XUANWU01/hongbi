@@ -1,0 +1,287 @@
+/* ============================================================
+   红笔 HONGBI · 题库文档解析器
+   支持：JSON / TXT / Markdown / CSV / TSV
+   返回：{ format, questions, skipped, warnings, title }
+   ============================================================ */
+'use strict';
+
+const PARSER = (() => {
+
+  const MAX_QUESTIONS = 800;
+
+  function clean(t) {
+    return String(t == null ? '' : t)
+      .replace(/\*\*/g, '')
+      .replace(/^[\s#>*\-•·]+/, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  function trunc(s, n) { s = String(s); return s.length > n ? s.slice(0, n) + '…' : s; }
+
+  /* 通用归一化：字母答案 -> 选项文本、推断题型 */
+  function normalize(q) {
+    const out = {
+      q: clean(q.q),
+      options: Array.isArray(q.options) ? q.options.map(clean).filter(Boolean) : [],
+      answer: clean(q.answer),
+      explanation: clean(q.explanation),
+      type: 'text'
+    };
+    if (out.options.length >= 2) {
+      out.type = 'choice';
+      const idx = letterToIndex(out.answer);
+      if (idx >= 0 && idx < out.options.length) out.answer = out.options[idx];
+    }
+    return out;
+  }
+
+  function letterToIndex(s) {
+    const m = String(s == null ? '' : s).trim().match(/^([A-Fa-f])[.、)）]?\s*$/);
+    return m ? m[1].toUpperCase().charCodeAt(0) - 65 : -1;
+  }
+
+  /* ---------- JSON ---------- */
+  function parseJSON(text, warnings) {
+    let data;
+    try { data = JSON.parse(text); }
+    catch (e) { throw new Error('JSON 解析失败：' + e.message); }
+
+    let list = [], title = null;
+    if (Array.isArray(data)) list = data;
+    else if (data && Array.isArray(data.questions)) { list = data.questions; title = data.title; }
+    else throw new Error('JSON 结构无法识别：应为题目数组，或 { title, questions: [...] }');
+
+    const questions = [];
+    list.forEach((raw, i) => {
+      if (typeof raw !== 'object' || raw === null) { warnings.push('第 ' + (i + 1) + ' 条不是对象，已跳过'); return; }
+      const q = raw.q ?? raw.question ?? raw.题目 ?? raw.题干 ?? raw.title ?? '';
+      if (!q) { warnings.push('第 ' + (i + 1) + ' 条缺少题目，已跳过'); return; }
+      let options = raw.options ?? raw.选项 ?? null;
+      if (typeof options === 'string') options = splitOptionString(options);
+      const n = normalize({
+        q,
+        options: Array.isArray(options) ? options : [],
+        answer: raw.a ?? raw.answer ?? raw.ans ?? raw.答案 ?? raw.答 ?? '',
+        explanation: raw.explanation ?? raw.解析 ?? raw.note ?? ''
+      });
+      if (!n.answer) warnings.push('第 ' + (i + 1) + ' 题未检测到答案');
+      questions.push(n);
+    });
+    return { questions, title };
+  }
+
+  function splitOptionString(s) {
+    return String(s)
+      .split(/[\n|;；]/)
+      .map(clean)
+      .filter(Boolean);
+  }
+
+  /* ---------- CSV / TSV ---------- */
+  function parseCSV(text, delim, warnings) {
+    const lines = text.split(/\r?\n/).filter(l => l.trim() !== '');
+    if (lines.length === 0) return { questions: [], warnings };
+
+    const rows = lines.map(l => splitRow(l, delim));
+    let colQ = 0, colA = 1, colO = 2, colE = 3, header = false;
+
+    const head = rows[0];
+    const find = re => head.findIndex(c => re.test(c));
+    const iq = find(/^(题目|题干|问题|question|q)$/i);
+    const ia = find(/^(答案|answer|ans|a)$/i);
+    if (iq >= 0 || ia >= 0) {
+      header = true;
+      colQ = iq >= 0 ? iq : (ia === 0 ? 1 : 0);
+      colA = ia >= 0 ? ia : (iq === 0 ? 1 : 0);
+      const io = find(/^(选项|options)$/i); colO = io >= 0 ? io : -1;
+      const ie = find(/^(解析|解释|explanation|note)$/i); colE = ie >= 0 ? ie : -1;
+    }
+
+    const questions = [];
+    rows.slice(header ? 1 : 0).forEach((r, i) => {
+      const q = clean(r[colQ] ?? '');
+      if (!q) { warnings.push('第 ' + (i + 1) + ' 行缺少题目，已跳过'); return; }
+      let options = colO >= 0 && r[colO] ? splitOptionString(r[colO]) : [];
+      const n = normalize({ q, options, answer: colA >= 0 ? (r[colA] ?? '') : '', explanation: colE >= 0 ? (r[colE] ?? '') : '' });
+      if (!n.answer) warnings.push('第 ' + (i + 1) + ' 题未检测到答案');
+      questions.push(n);
+    });
+    return { questions, warnings };
+  }
+
+  function splitRow(line, delim) {
+    if (delim === '\t') return line.split('\t').map(s => s.trim());
+    const out = [];
+    let cur = '', inQ = false;
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+      if (inQ) {
+        if (c === '"') { if (line[i + 1] === '"') { cur += '"'; i++; } else inQ = false; }
+        else cur += c;
+      } else {
+        if (c === '"') inQ = true;
+        else if (c === delim) { out.push(cur); cur = ''; }
+        else cur += c;
+      }
+    }
+    out.push(cur);
+    return out.map(s => s.trim());
+  }
+
+  /* ---------- TXT / Markdown ---------- */
+  function parseText(text, warnings) {
+    const lines = text.split(/\r?\n/).map(l => l.trim());
+    const nonEmpty = lines.filter(Boolean);
+
+    // 工具：统计能拆出「题目|答案」两格的有效行数（排除解析/答案/选项行，避免正文中的 | 误触发）
+    const countPairs = (sepRe) => nonEmpty.filter(l => {
+      const m = l.split(sepRe);
+      return m.length >= 2 && clean(m[0]) && clean(m[1]) && !/^(解析|答案|选项|说明)/.test(clean(m[0]));
+    }).length;
+    const enough = (n) => n >= 2 && n * 2 >= nonEmpty.length;
+
+    // 预检测 1：单行分隔符（制表符 / 竖线），需过半行数可拆才启用
+    const sepTabPipe = countPairs(/[\t|]/);
+    if (enough(sepTabPipe)) {
+      const qs = [];
+      for (const l of nonEmpty) {
+        const m = l.split(/[\t|]/);
+        if (m.length >= 2 && clean(m[0]) && clean(m[1])) {
+          qs.push(normalize({ q: m[0], answer: m.slice(1).join(' '), options: [] }));
+        }
+      }
+      if (qs.length >= 2) return { questions: qs, warnings };
+    }
+
+    // 预检测 2：长横线 "——" 分隔
+    const sepDash = countPairs(/——|----/);
+    if (enough(sepDash)) {
+      const qs = [];
+      for (const l of nonEmpty) {
+        const m = l.split(/——|----/);
+        if (m.length >= 2 && clean(m[0]) && clean(m[1])) {
+          qs.push(normalize({ q: m[0], answer: m.slice(1).join(' '), options: [] }));
+        }
+      }
+      if (qs.length >= 2) return { questions: qs, warnings };
+    }
+
+    // 预检测 3：同行 "Q：xxx A：xxx"
+    const inlineQA = [];
+    for (const l of nonEmpty) {
+      const m = l.match(/^[Q问题目][:：]?\s*(.+?)\s+[A答][:：]\s*(.+)$/i);
+      if (m) inlineQA.push(normalize({ q: m[1], answer: m[2], options: [] }));
+    }
+    if (inlineQA.length >= 1) return { questions: inlineQA, warnings };
+
+    // 状态机解析块状格式（警告先收集，仅当最终采用本结果时才输出）
+    const questions = [];
+    const smWarnings = [];
+    let cur = null;
+
+    const flush = () => {
+      if (!cur) return;
+      const n = normalize(cur);
+      if (!n.q && !n.answer && n.options.length === 0) { cur = null; return; }
+      if (!n.answer && n.options.length === 0) smWarnings.push('「' + trunc(n.q || '(空题目)', 16) + '」未检测到答案');
+      questions.push(n);
+      cur = null;
+    };
+    const pushQ = (t) => { flush(); cur = { q: t, options: [], answer: '', explanation: '' }; };
+
+    const RE_NUM   = /^\d{1,4}[.、)）]\s*(.+)/;
+    const RE_QMARK = /^(q|问|题目|题干)\s*[:：]\s*(.+)/i;
+    const RE_AMARK = /^(答案|参考答案|answer|ans)\s*[:：]\s*(.+)/i;
+    const RE_EMARK = /^(解析|解释|说明|explanation|note)\s*[:：]\s*(.+)/i;
+    const RE_OPT   = /^([A-Fa-f])\s*[.、)）]\s*(.+)/;
+
+    for (const raw of lines) {
+      if (!raw) { continue; }
+      let m;
+
+      if ((m = raw.match(RE_AMARK))) {
+        if (!cur) pushQ('');
+        cur.answer = (cur.answer ? cur.answer + ' ' : '') + m[2];
+        continue;
+      }
+      if ((m = raw.match(RE_EMARK))) {
+        if (!cur) pushQ('');
+        cur.explanation = (cur.explanation ? cur.explanation + ' ' : '') + m[2];
+        continue;
+      }
+      if ((m = raw.match(RE_NUM))) { pushQ(clean(m[1])); continue; }
+      if ((m = raw.match(RE_QMARK))) { pushQ(clean(m[2])); continue; }
+      if ((m = raw.match(RE_OPT))) {
+        if (!cur) pushQ('');
+        cur.options.push(clean(m[2]));
+        continue;
+      }
+      // 普通文本
+      if (!cur) pushQ(clean(raw));
+      else if (cur.options.length > 0 && !cur.answer) cur.options[cur.options.length - 1] += ' ' + clean(raw);
+      else if (!cur.answer) cur.q += ' ' + clean(raw);
+      else cur.explanation = (cur.explanation ? cur.explanation + ' ' : '') + clean(raw);
+    }
+    flush();
+
+    // 兜底：奇偶行配对（奇数行题目，偶数行答案）——仅在题目数 < 2 或首题无答案时尝试，避免误伤正常题库
+    const needPair = questions.length === 0 || (questions.length === 1 && !questions[0].answer);
+    if (needPair) {
+      if (nonEmpty.length >= 2 && nonEmpty.length % 2 === 0 && nonEmpty.every(l => l.length <= 60)) {
+        const qs = [];
+        for (let i = 0; i < nonEmpty.length; i += 2) {
+          const q = clean(nonEmpty[i]), a = clean(nonEmpty[i + 1]);
+          if (q && a) qs.push(normalize({ q, answer: a, options: [] }));
+        }
+        if (qs.length >= 1) return { questions: qs, warnings };
+      }
+    }
+    if (questions.length === 0) smWarnings.push('未能识别出题目格式，请参考「格式说明」调整后重试');
+    warnings.push(...smWarnings);
+    return { questions, warnings };
+  }
+
+  /* ---------- 入口 ---------- */
+  function parseQuestionBank(filename, text) {
+    const warnings = [];
+    const ext = (filename.split('.').pop() || '').toLowerCase();
+    text = String(text || '').replace(/^\uFEFF/, '');
+
+    if (!text.trim()) throw new Error('文件内容为空');
+
+    let result = { questions: [], warnings, title: null };
+    let format;
+
+    if (ext === 'json') {
+      format = 'JSON';
+      result = parseJSON(text, warnings);
+    } else if (ext === 'csv') {
+      format = 'CSV';
+      result = parseCSV(text, ',', warnings);
+    } else if (ext === 'tsv') {
+      format = 'TSV';
+      result = parseCSV(text, '\t', warnings);
+    } else {
+      format = /\.(md|markdown)$/i.test(ext) ? 'Markdown' : '文本';
+      result = parseText(text, warnings);
+    }
+
+    let { questions } = result;
+    const skipped = Math.max(0, questions.length - MAX_QUESTIONS);
+    if (skipped > 0) {
+      warnings.push('题目超过 ' + MAX_QUESTIONS + ' 条，已截取前 ' + MAX_QUESTIONS + ' 条');
+      questions = questions.slice(0, MAX_QUESTIONS);
+    }
+
+    return {
+      format,
+      questions,
+      skipped,
+      warnings,
+      title: result.title || null
+    };
+  }
+
+  return { parseQuestionBank };
+})();

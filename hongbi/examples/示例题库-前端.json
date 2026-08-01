@@ -1,0 +1,35 @@
+{
+  "title": "示例题库 · 前端小测",
+  "desc": "用于体验 JSON 格式上传的示例题库（5 题）",
+  "category": "前端",
+  "tags": ["示例", "JSON"],
+  "questions": [
+    {
+      "q": "下列哪个不是 HTML 标签？",
+      "options": ["<div>", "<span>", "<section>", "<format>"],
+      "answer": "<format>",
+      "explanation": "<format> 不是标准 HTML 标签。"
+    },
+    {
+      "q": "CSS 中让 flex 子元素垂直居中的属性是？",
+      "answer": "align-items: center",
+      "explanation": "主轴用 justify-content，交叉轴用 align-items。"
+    },
+    {
+      "q": "typeof null 的返回值是？",
+      "answer": "object",
+      "explanation": "历史遗留 bug，但面试常考。"
+    },
+    {
+      "q": "HTTP 状态码 200 表示？",
+      "options": ["成功", "重定向", "未找到", "服务器错误"],
+      "answer": "成功",
+      "explanation": "200 OK；404 未找到；500 服务器错误。"
+    },
+    {
+      "q": "var、let、const 中，哪个存在变量提升？",
+      "answer": "var",
+      "explanation": "var 有变量提升，let/const 存在暂时性死区。"
+    }
+  ]
+}
