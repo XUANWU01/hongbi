@@ -4,8 +4,19 @@
 
 ## 运行方式
 
-无需安装、无需服务器。直接双击 [index.html](index.html) 用浏览器打开即可（推荐 Chrome / Edge）。
-数据保存在浏览器 localStorage 中，刷新不丢失。
+**方式一：本地模式（零依赖，双击即用）**
+直接双击 [index.html](index.html) 用浏览器打开。数据保存在浏览器 localStorage，公共题库为本地模拟。
+
+**方式二：云端共享模式（真正的多用户互通）**
+后端使用 Node.js 自带模块（http + node:sqlite），**无需 npm install、无需编译**：
+
+```bash
+node server/server.js
+```
+
+然后访问 <http://localhost:8712>（默认监听 0.0.0.0，局域网内其他设备访问 <http://本机IP:8712> 即可共享同一套公共题库）。
+
+两种模式自动切换：页面启动时自动探测服务器，连上显示「☁ 云端共享」，连不上自动回退「本地模式」，无需任何配置。
 
 ## 核心功能
 
@@ -67,13 +78,28 @@ D. 选项D
 
 > 解析技巧：如果题目和选项写在同一行（如 `题目 A.甲 B.乙 C.丙 D.丁`）或使用全角点（`A．甲`），解析器也能自动拆出选项。
 
+## 后端 API（server/server.js）
+
+| 接口 | 方法 | 说明 |
+| --- | --- | --- |
+| `/api/health` | GET | 健康检查 |
+| `/api/sets` | GET | 公共主题库全量列表 |
+| `/api/sets/:id` | GET | 单套题库 |
+| `/api/sets` | POST | 同意共享后提交 `{title, desc, category, tags, questions, clientId}` |
+| `/api/sets/:id` | DELETE | 删除共享题库（官方题库不可删） |
+
+要点：
+1. 数据存 SQLite（`server/data/hongbi.db`），首次启动自动灌入 4 套官方精选题库，重启不丢数据。
+2. 提交时携带 `clientId`（浏览器自动生成的本机标识），用于识别「我的贡献」；服务端暂不做账号认证，局域网内任何访问者都可贡献。
+3. 可选管理密钥：启动时设置环境变量 `HONGBI_ADMIN_KEY=xxx` 后，DELETE 接口需带请求头 `x-admin-key: xxx`，防止他人删库。
+4. 跨域已放开（`Access-Control-Allow-Origin: *`），前端即使以其他方式部署也能调用。
+5. 上传解析仍在浏览器端完成（`js/parser.js` 直接复用），服务端只做校验与存储。
+
 ## 技术说明
 
-- 纯前端实现（原生 HTML/CSS/JS，无构建步骤、无第三方依赖），方便直接部署到任意静态托管（GitHub Pages、Vercel、Nginx 等）。
-- 当前「公共主题库」为本地模拟：共享数据只存在本机浏览器。**真正让不同用户之间互通，需要加一个后端**，推荐方案：
-  1. Node.js + Express/Koa + SQLite/Postgres，提供题库 CRUD 与共享合并 API；
-  2. 或 Serverless（Supabase / Firebase）做认证 + 题库表 + 贡献审核；
-  3. 上传解析逻辑（`js/parser.js`）可直接复用，前端只需把「同意共享」的提交改为 POST 到服务端。
+- 纯前端 + 零依赖 Node 后端：静态页面与 API 由同一个 `node server/server.js` 托管，没有 npm 依赖、没有构建步骤。
+- 前后端职责：前端负责解析上传文档与刷题交互，后端负责公共题库的跨用户存储与共享。
+- 私库、刷题进度、错题本、统计始终保存在本机浏览器（属于个人数据，不上云）。
 - 设计：纸质试卷 × 红笔批改风格，字体 Noto Serif SC / ZCOOL XiaoWei / JetBrains Mono（CDN 加载，离线时自动回退系统字体）。
 
 ## 目录结构
@@ -84,8 +110,13 @@ hongbi/
 ├── css/style.css
 ├── js/
 │   ├── data.js      # 存储、种子题库、统计
+│   ├── api.js       # 服务端 API 客户端（云端/本地模式自动切换）
 │   ├── parser.js    # 题库文档解析器
 │   └── app.js       # 路由、视图、刷题引擎、上传流程
+├── server/
+│   ├── server.js    # 后端：静态托管 + REST API（零依赖）
+│   ├── seed.js      # 官方种子题库
+│   └── data/        # SQLite 数据库（自动生成）
 └── examples/
     ├── 示例题库-计算机.txt
     └── 示例题库-前端.json

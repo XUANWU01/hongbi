@@ -19,16 +19,31 @@ const PARSER = (() => {
 
   function trunc(s, n) { s = String(s); return s.length > n ? s.slice(0, n) + '…' : s; }
 
-  /* 同行选项提取：题目行内带 "A.甲 B.乙 C.丙 D.丁"（含全角点 A．甲）时拆出选项 */
+  /* 同行选项提取：题目行内带 "A.甲 B.乙 C.丙 D.丁"（含全角点 A．甲）时拆出选项
+     安全校验：选项字母必须从 A 开始、严格递增且不重复，避免正文中的 e. / d. 等英文片段误触发 */
   function extractInlineOptions(t) {
     const str = String(t == null ? '' : t);
-    const count = (str.match(/[A-Fa-f]\s*[.、)）．]/g) || []).length;
-    if (count < 2) return null;
-    const parts = str.split(/(?=[A-Fa-f]\s*[.、)）．])/).map(clean).filter(Boolean);
-    if (parts.length < 2) return null;
-    const opts = parts.slice(1).map(p => p.replace(/^[A-Fa-f]\s*[.、)）．]\s*/, ''));
-    const q = parts[0];
-    if (opts.length < 2 || !q) return null;
+    const re = /[A-Fa-f]\s*[.、)）．]/g;
+    const marks = [];
+    let m;
+    while ((m = re.exec(str)) !== null) {
+      marks.push({ letter: m[0][0].toUpperCase(), idx: m.index });
+      if (marks.length > 8) break;
+    }
+    if (marks.length < 2) return null;
+    let expect = 'A'.charCodeAt(0);
+    for (const mm of marks) {
+      if (mm.letter.charCodeAt(0) !== expect) return null;
+      expect++;
+    }
+    // 只在校验通过的位置切分
+    const parts = [];
+    let last = 0;
+    marks.forEach(mm => { parts.push(str.slice(last, mm.idx)); last = mm.idx; });
+    parts.push(str.slice(last));
+    const q = clean(parts[0]);
+    const opts = parts.slice(1).map(p => clean(p.replace(/^[A-Fa-f]\s*[.、)）．]\s*/, '')));
+    if (opts.length < 2 || !q || opts.some(o => !o)) return null;
     return { q, opts };
   }
 
@@ -207,11 +222,11 @@ const PARSER = (() => {
       questions.push(n);
       cur = null;
     };
-    const pushQ = (t) => { flush(); cur = { q: t, options: [], answer: '', explanation: '' }; };
+    const pushQ = (t) => { flush(); cur = { q: t, options: [], answer: '', explanation: '', _optExpect: 65 }; };
     // 新题目行：优先尝试从行内拆出选项（题目 A.甲 B.乙 C.丙 D.丁）
     const pushLineQ = (t) => {
       const inline = extractInlineOptions(t);
-      if (inline) { flush(); cur = { q: inline.q, options: inline.opts, answer: '', explanation: '' }; }
+      if (inline) { flush(); cur = { q: inline.q, options: inline.opts, answer: '', explanation: '', _optExpect: 65 }; }
       else pushQ(t);
     };
 
@@ -239,7 +254,16 @@ const PARSER = (() => {
       if ((m = raw.match(RE_QMARK))) { pushLineQ(clean(m[2])); continue; }
       if ((m = raw.match(RE_OPT))) {
         if (!cur) pushQ('');
-        cur.options.push(clean(m[2]));
+        const letter = m[1].toUpperCase().charCodeAt(0);
+        if (letter === (cur._optExpect || 65)) {
+          cur.options.push(clean(m[2]));
+          cur._optExpect = letter + 1;
+        } else {
+          // 不是预期选项字母（如正文英文 e. / d. 片段），当作普通文本处理，防止误拆
+          if (cur.options.length === 0 && !cur.answer) cur.q += ' ' + clean(raw);
+          else if (!cur.answer) cur.options[cur.options.length - 1] += ' ' + clean(raw);
+          else cur.explanation = (cur.explanation ? cur.explanation + ' ' : '') + clean(raw);
+        }
         continue;
       }
       // 普通文本

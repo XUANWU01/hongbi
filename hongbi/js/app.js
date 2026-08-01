@@ -215,8 +215,11 @@ function renderLibrary() {
           '<a class="btn btn-primary btn-sm" href="#/upload">上传题库</a>')) +
     '<div class="section-head"><div><h2>共享说明</h2></div></div>' +
     '<div class="format-card" style="max-width:100%">' +
-      '你上传的题库一旦<strong>同意共享</strong>，就会按主题合并进这里，任何访问本站的人都可以用来刷题；' +
-      '<strong>不同意共享</strong>的题库会进入「我的题库 · 私库」，仅你自己可见。' +
+      (ServerAPI.online
+        ? '当前为<strong>云端共享模式</strong>：公共主题库由服务器统一维护，任何访问者上传的题库都会实时合并到这里，大家都能刷到；' +
+          '<strong>不同意共享</strong>的题库仍只存在你自己设备上的私库。'
+        : '你上传的题库一旦<strong>同意共享</strong>，就会按主题合并进这里（当前为本地模式，共享内容保存在本机浏览器）；' +
+          '<strong>不同意共享</strong>的题库会进入「我的题库 · 私库」，仅你自己可见。运行 <code>node server/server.js</code> 即可开启真正的多用户共享。') +
     '</div>';
 }
 
@@ -233,7 +236,7 @@ function bindLibrary() {
 /* ---------- 我的题库 ---------- */
 function renderMine() {
   const priv = privateSets();
-  const mine = publicSets().filter(s => s.owner === '我');
+  const mine = publicSets().filter(isMine);
 
   const privSection = priv.length
     ? '<div class="section-head"><div><h2>我的私库</h2><div class="section-sub">仅你自己可见的题库，来源于「不同意共享」的上传。</div></div></div>' +
@@ -387,7 +390,8 @@ function renderUpload() {
   const p = uploadState.parsed;
   const samples = p.questions.slice(0, 3);
   const warnHtml = p.warnings.length
-    ? '<ul class="warn-list">' + p.warnings.map(w => '<li>⚠ ' + esc(w) + '</li>').join('') + '</ul>'
+    ? '<ul class="warn-list">' + p.warnings.slice(0, 5).map(w => '<li>⚠ ' + esc(w) + '</li>').join('') +
+      (p.warnings.length > 5 ? '<li style="color:var(--ink-2)">… 另有 ' + (p.warnings.length - 5) + ' 条提示已折叠</li>' : '') + '</ul>'
     : '';
 
   return '' +
@@ -565,6 +569,20 @@ function submitUpload(shared) {
   const tags = ($('#f-tags') ? $('#f-tags').value : '').split(/[,，]/).map(s => s.trim()).filter(Boolean).slice(0, 5);
   const desc = ($('#f-desc') ? $('#f-desc').value : '').trim();
 
+  // 同意共享 + 云端在线：提交到服务器，所有访问者实时可见
+  if (shared && typeof ServerAPI !== 'undefined' && ServerAPI.online) {
+    ServerAPI.create({ title, desc, category: cat, tags, questions: p.questions })
+      .then(() => {
+        toast('已合并进公共主题库（云端），感谢分享 ✒️');
+        uploadState = null;
+        location.hash = '#/library';
+      })
+      .catch(err => {
+        toast('云端同步失败：' + (err.message || '未知错误') + '，可稍后重试或存入私库', 'err');
+      });
+    return;
+  }
+
   const set = {
     id: uid(),
     title,
@@ -580,7 +598,7 @@ function submitUpload(shared) {
   if (shared) Store.set(KEY_PUBLIC, [set, ...publicSets()]);
   else Store.set(KEY_PRIVATE, [set, ...privateSets()]);
 
-  toast(shared ? '已合并进公共主题库，感谢分享 ✒️' : '已存入你的私库', 'ok');
+  toast(shared ? '已合并进公共主题库（本地），感谢分享 ✒️' : '已存入你的私库', 'ok');
   uploadState = null;
   location.hash = shared ? '#/library' : '#/mine';
 }
@@ -911,6 +929,11 @@ document.addEventListener('click', async e => {
     case 'delete-set': {
       const set = findSet(t.dataset.id);
       if (!set) break;
+      const online = typeof ServerAPI !== 'undefined' && ServerAPI.online;
+      const blockReason =
+        (online && set.source === 'official') ? '官方精选题库不可删除。' :
+        (online && set.source === 'public' && !isMine(set)) ? '云端模式下只能删除自己的贡献。' : null;
+      if (blockReason) { toast(blockReason, 'err'); break; }
       const ok = await confirmModal({
         title: '删除题库',
         body: '<p class="m-line">确定删除「' + esc(set.title) + '」吗？共 ' + set.questions.length + ' 题。' +
@@ -919,10 +942,16 @@ document.addEventListener('click', async e => {
         danger: true
       });
       if (ok) {
-        if (set.source === 'public') Store.set(KEY_PUBLIC, publicSets().filter(s => s.id !== set.id));
-        else Store.set(KEY_PRIVATE, privateSets().filter(s => s.id !== set.id));
-        toast('已删除「' + set.title + '」');
-        render();
+        if (set.source === 'public' && online) {
+          ServerAPI.remove(set.id)
+            .then(() => { toast('已从云端删除「' + set.title + '」'); render(); })
+            .catch(err => toast('删除失败：' + err.message, 'err'));
+        } else {
+          if (set.source === 'public') Store.set(KEY_PUBLIC, publicSets().filter(s => s.id !== set.id));
+          else Store.set(KEY_PRIVATE, privateSets().filter(s => s.id !== set.id));
+          toast('已删除「' + set.title + '」');
+          render();
+        }
       }
       break;
     }
@@ -982,6 +1011,18 @@ document.addEventListener('click', async e => {
   }
 });
 
+/* ---------- 服务模式指示 ---------- */
+function updateServerPill() {
+  const pill = $('#server-pill');
+  if (!pill) return;
+  const online = typeof ServerAPI !== 'undefined' && ServerAPI.online;
+  pill.className = 'server-pill ' + (online ? 'online' : 'offline');
+  pill.textContent = online ? '☁ 云端共享' : '本地模式';
+  pill.title = online
+    ? '已连接服务器：公共主题库与所有访问者实时同步'
+    : '未连接服务器：数据仅保存在本机浏览器（运行 node server/server.js 开启共享）';
+}
+
 /* ============================================================
    启动
    ============================================================ */
@@ -990,5 +1031,18 @@ window.addEventListener('hashchange', render);
 (function boot() {
   initData();
   refreshWrongBadge();
+  updateServerPill();
   render();
+  // 异步探测服务端；成功后切换到云端共享模式并刷新视图
+  if (typeof ServerAPI !== 'undefined') {
+    ServerAPI.check().then(ok => {
+      if (ok) {
+        updateServerPill();
+        render();
+        toast('已连接服务器，公共主题库实时共享中 ☁');
+      } else {
+        updateServerPill();
+      }
+    });
+  }
 })();
