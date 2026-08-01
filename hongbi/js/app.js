@@ -39,7 +39,7 @@ function shuffle(arr) {
 }
 
 function normAnswer(s) {
-  return String(s == null ? '' : s).replace(/^\s*[A-Fa-f][.、)）]\s*/, '').replace(/\s+/g, ' ').trim().toLowerCase();
+  return String(s == null ? '' : s).replace(/^\s*[A-Fa-f][.、)）．]\s*/, '').replace(/\s+/g, ' ').trim().toLowerCase();
 }
 
 function trunc(s, n) { s = String(s == null ? '' : s); return s.length > n ? s.slice(0, n) + '…' : s; }
@@ -359,7 +359,7 @@ function renderUpload() {
   if (!uploadState) {
     return '' +
       '<div class="section-head" style="margin-top:6px"><div><h2>上传题库</h2>' +
-      '<div class="section-sub">支持 JSON / TXT / Markdown / CSV / TSV，文件不超过 2 MB。</div></div></div>' +
+      '<div class="section-sub">支持 JSON / TXT / Markdown / CSV / TSV / PDF / Word(.docx)，文本 ≤ 2MB，PDF·Word ≤ 20MB。</div></div></div>' +
       '<div class="upload-banner"><span class="b-icon">📢</span><div>' +
       '<strong>上传前请注意：</strong>所有上传都会先经过「共享确认」——你可以选择把题库<strong>合并到公共主题库</strong>供其他有同样需求的人使用，' +
       '也可以<strong>不同意并建立自己的私库</strong>。' +
@@ -369,13 +369,14 @@ function renderUpload() {
         '<span class="dz-icon">📄</span>' +
         '<h3>把题库文档拖到这里</h3>' +
         '<p>或者点击选择文件</p>' +
-        '<p class="dz-formats">.json&nbsp;&nbsp;.txt&nbsp;&nbsp;.md&nbsp;&nbsp;.csv&nbsp;&nbsp;.tsv</p>' +
-        '<input type="file" id="file-input" accept=".json,.txt,.md,.markdown,.csv,.tsv" hidden>' +
+        '<p class="dz-formats">.json&nbsp;&nbsp;.txt&nbsp;&nbsp;.md&nbsp;&nbsp;.csv&nbsp;&nbsp;.tsv&nbsp;&nbsp;.pdf&nbsp;&nbsp;.docx</p>' +
+        '<input type="file" id="file-input" accept=".json,.txt,.md,.markdown,.csv,.tsv,.pdf,.docx" hidden>' +
       '</div>' +
       '<div class="format-help">' +
         '<div class="format-card"><b>JSON</b><br><code>{"questions":[{"q":"题目","options":["A","B"],"answer":"A","explanation":"解析"}]}</code> 或纯数组</div>' +
         '<div class="format-card"><b>TXT / Markdown</b><br>编号 + 选项行 + <code>答案：</code> / <code>解析：</code>，自动识别；问答型可每行用 <code>题目|答案</code> 或奇偶行配对</div>' +
         '<div class="format-card"><b>CSV / TSV</b><br>表头 <code>题目,答案,选项,解析</code>（选项间用 | 分隔），无表头则按此列序</div>' +
+        '<div class="format-card"><b>PDF / Word(.docx)</b><br>自动提取文字后按文本格式解析（需联网加载解析库）；扫描版/图片型 PDF 无法识别文字，建议转成 TXT 或 JSON</div>' +
       '</div>' +
       '<div style="margin-top:22px;text-align:center">' +
         '<a class="btn btn-ghost btn-sm" href="examples/示例题库-计算机.txt" download>下载 TXT 示例</a>' +
@@ -458,14 +459,74 @@ function bindUpload() {
   }
 }
 
+/* ---------- PDF / Word 解析（按需加载，不影响离线核心功能） ---------- */
+const CDN_PDFJS = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+const CDN_JSZIP = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = src;
+    s.onload = resolve;
+    s.onerror = () => reject(new Error('加载在线解析库失败，请检查网络后重试'));
+    document.head.appendChild(s);
+  });
+}
+
+async function extractPDF(file) {
+  await loadScript(CDN_PDFJS);
+  const buf = await file.arrayBuffer();
+  pdfjsLib.GlobalWorkerOptions.workerSrc = CDN_PDFJS.replace('pdf.min.js', 'pdf.worker.min.js');
+  const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+  let out = '';
+  for (let p = 1; p <= pdf.numPages; p++) {
+    const page = await pdf.getPage(p);
+    const tc = await page.getTextContent();
+    let line = '';
+    for (const item of tc.items) {
+      line += (item.str || ' ');
+      if (item.hasEOL) { out += line + '\n'; line = ''; }
+    }
+    if (line.trim()) out += line + '\n';
+  }
+  return out;
+}
+
+async function extractDocx(file) {
+  await loadScript(CDN_JSZIP);
+  const buf = await file.arrayBuffer();
+  const zip = await JSZip.loadAsync(buf);
+  const entry = zip.file('word/document.xml');
+  if (!entry) throw new Error('不是有效的 .docx 文件（缺少 word/document.xml）');
+  let xml = await entry.async('string');
+  let text = xml
+    .replace(/<w:tab[^>]*\/>/g, '\t')
+    .replace(/<w:br[^>]*\/>/g, '\n')
+    .replace(/<w:tr[^>]*>/g, '\n')
+    .replace(/<w:tc[^>]*>/g, ' | ')
+    .replace(/<w:p[^>]*>/g, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+    .replace(/\n{3,}/g, '\n\n');
+  return text;
+}
+
+function extOf(name) { return (name.split('.').pop() || '').toLowerCase(); }
+
+/* ---------- 上传流程 ---------- */
 function handleUploadFile(file) {
-  const okExt = /\.(json|txt|md|markdown|csv|tsv)$/i.test(file.name);
-  if (!okExt) { toast('不支持的文件类型：' + file.name, 'err'); return; }
-  if (file.size > 2 * 1024 * 1024) { toast('文件超过 2 MB，请拆分后上传', 'err'); return; }
-  const reader = new FileReader();
-  reader.onload = () => {
+  const ext = extOf(file.name);
+  const textExt = /^(json|txt|md|markdown|csv|tsv)$/i.test(ext);
+  const docExt = /^(pdf|docx)$/i.test(ext);
+  if (!textExt && !docExt) { toast('不支持的文件类型：' + file.name, 'err'); return; }
+  const limit = textExt ? 2 * 1024 * 1024 : 20 * 1024 * 1024;
+  if (file.size > limit) { toast('文件超过大小限制（文本 2MB / PDF·Word 20MB）', 'err'); return; }
+
+  const done = (text, formatLabel) => {
     try {
-      const res = PARSER.parseQuestionBank(file.name, String(reader.result));
+      const res = PARSER.parseQuestionBank(file.name.replace(/\.[^.]+$/, '') + '.txt', text);
+      res.format = formatLabel || res.format;
       if (res.questions.length === 0) { toast('未能解析出题目，请参考格式说明', 'err'); return; }
       uploadState = {
         name: file.name,
@@ -480,8 +541,20 @@ function handleUploadFile(file) {
       toast(e.message || '解析失败', 'err');
     }
   };
-  reader.onerror = () => toast('读取文件失败', 'err');
-  reader.readAsText(file, 'utf-8');
+
+  if (textExt) {
+    const reader = new FileReader();
+    reader.onload = () => done(String(reader.result), null);
+    reader.onerror = () => toast('读取文件失败', 'err');
+    reader.readAsText(file, 'utf-8');
+    return;
+  }
+
+  toast('正在解析 ' + (ext === 'pdf' ? 'PDF' : 'Word') + '，首次使用需要联网加载解析库…');
+  const task = ext === 'pdf' ? extractPDF(file) : extractDocx(file);
+  task
+    .then(text => done(text, ext === 'pdf' ? 'PDF 文本提取' : 'Word 文本提取'))
+    .catch(err => toast(err.message || '解析 ' + ext + ' 失败', 'err'));
 }
 
 function submitUpload(shared) {

@@ -19,11 +19,30 @@ const PARSER = (() => {
 
   function trunc(s, n) { s = String(s); return s.length > n ? s.slice(0, n) + '…' : s; }
 
-  /* 通用归一化：字母答案 -> 选项文本、推断题型 */
+  /* 同行选项提取：题目行内带 "A.甲 B.乙 C.丙 D.丁"（含全角点 A．甲）时拆出选项 */
+  function extractInlineOptions(t) {
+    const str = String(t == null ? '' : t);
+    const count = (str.match(/[A-Fa-f]\s*[.、)）．]/g) || []).length;
+    if (count < 2) return null;
+    const parts = str.split(/(?=[A-Fa-f]\s*[.、)）．])/).map(clean).filter(Boolean);
+    if (parts.length < 2) return null;
+    const opts = parts.slice(1).map(p => p.replace(/^[A-Fa-f]\s*[.、)）．]\s*/, ''));
+    const q = parts[0];
+    if (opts.length < 2 || !q) return null;
+    return { q, opts };
+  }
+
+  /* 通用归一化：字母答案 -> 选项文本、推断题型；选项缺失时尝试从题干中拆分 */
   function normalize(q) {
+    let options = Array.isArray(q.options) ? q.options.map(clean).filter(Boolean) : [];
+    let qText = clean(q.q);
+    if (options.length < 2) {
+      const inline = extractInlineOptions(qText);
+      if (inline) { qText = inline.q; options = inline.opts; }
+    }
     const out = {
-      q: clean(q.q),
-      options: Array.isArray(q.options) ? q.options.map(clean).filter(Boolean) : [],
+      q: qText,
+      options,
       answer: clean(q.answer),
       explanation: clean(q.explanation),
       type: 'text'
@@ -37,7 +56,7 @@ const PARSER = (() => {
   }
 
   function letterToIndex(s) {
-    const m = String(s == null ? '' : s).trim().match(/^([A-Fa-f])[.、)）]?\s*$/);
+    const m = String(s == null ? '' : s).trim().match(/^([A-Fa-f])[.、)）．]?\s*$/);
     return m ? m[1].toUpperCase().charCodeAt(0) - 65 : -1;
   }
 
@@ -189,12 +208,18 @@ const PARSER = (() => {
       cur = null;
     };
     const pushQ = (t) => { flush(); cur = { q: t, options: [], answer: '', explanation: '' }; };
+    // 新题目行：优先尝试从行内拆出选项（题目 A.甲 B.乙 C.丙 D.丁）
+    const pushLineQ = (t) => {
+      const inline = extractInlineOptions(t);
+      if (inline) { flush(); cur = { q: inline.q, options: inline.opts, answer: '', explanation: '' }; }
+      else pushQ(t);
+    };
 
     const RE_NUM   = /^\d{1,4}[.、)）]\s*(.+)/;
     const RE_QMARK = /^(q|问|题目|题干)\s*[:：]\s*(.+)/i;
     const RE_AMARK = /^(答案|参考答案|answer|ans)\s*[:：]\s*(.+)/i;
     const RE_EMARK = /^(解析|解释|说明|explanation|note)\s*[:：]\s*(.+)/i;
-    const RE_OPT   = /^([A-Fa-f])\s*[.、)）]\s*(.+)/;
+    const RE_OPT   = /^([A-Fa-f])\s*[.、)）．]\s*(.+)/;
 
     for (const raw of lines) {
       if (!raw) { continue; }
@@ -210,15 +235,15 @@ const PARSER = (() => {
         cur.explanation = (cur.explanation ? cur.explanation + ' ' : '') + m[2];
         continue;
       }
-      if ((m = raw.match(RE_NUM))) { pushQ(clean(m[1])); continue; }
-      if ((m = raw.match(RE_QMARK))) { pushQ(clean(m[2])); continue; }
+      if ((m = raw.match(RE_NUM))) { pushLineQ(clean(m[1])); continue; }
+      if ((m = raw.match(RE_QMARK))) { pushLineQ(clean(m[2])); continue; }
       if ((m = raw.match(RE_OPT))) {
         if (!cur) pushQ('');
         cur.options.push(clean(m[2]));
         continue;
       }
       // 普通文本
-      if (!cur) pushQ(clean(raw));
+      if (!cur) pushLineQ(clean(raw));
       else if (cur.options.length > 0 && !cur.answer) cur.options[cur.options.length - 1] += ' ' + clean(raw);
       else if (!cur.answer) cur.q += ' ' + clean(raw);
       else cur.explanation = (cur.explanation ? cur.explanation + ' ' : '') + clean(raw);
