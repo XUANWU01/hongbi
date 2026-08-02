@@ -81,11 +81,8 @@ function jobToJSON(job) {
 }
 
 function registerUploadRoutes(app) {
-  // 单文件上传
-  app.post('/api/upload', authRequired, (req, res, next) => {
-    try { rateLimitUpload(req.auth, parseInt(req.headers['content-length']) || 0); } catch (e) { return res.status(429).json({ error: e.message }); }
-    next();
-  }, upload.single('file'), (req, res) => {
+  // 单文件上传（速率限制已屏蔽，后续按需启用）
+  app.post('/api/upload', authRequired, upload.single('file'), (req, res) => {
     if (!req.file) { res.status(400).json({ error: '未收到文件' }); return; }
     const jobId = createJob(req.auth, req.file.originalname, req.file.path);
     setImmediate(() => runJob(jobId));

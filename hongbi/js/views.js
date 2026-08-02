@@ -293,9 +293,15 @@ async function renderAdmin() {
   let data;
   try { data = await ServerAPI.getReviews('pending'); } catch (e) { view.innerHTML = emptyState('✗', '加载失败', e.message, ''); return; }
   const items = data.items;
-  view.innerHTML = '<div class="section-head" style="margin-top:6px"><div><h2>贡献审核队列</h2>' +
+  const subNav = '<div class="admin-subnav">' +
+    '<a href="#/admin" class="active">审核队列</a>' +
+    (ServerAPI.identity && ServerAPI.identity.role === 'superadmin' ? '<a href="#/audit">审计日志</a>' : '') +
+    '<a href="#/parser">解析质量</a>' +
+    '</div>';
+  view.innerHTML = '<div class="section-head" style="margin-top:6px"><div><h2>审核队列</h2>' +
     '<div class="section-sub">批准后进入公共主题库 · 驳回必须填写原因</div></div>' +
     '<span class="chip chip-pending">待审 ' + items.length + '</span></div>' +
+    subNav +
     (items.length
       ? items.map((s, i) => '<div class="review-card">' +
           '<div class="row-main"><div class="row-title">' + esc(s.title) + '</div>' +
@@ -480,14 +486,31 @@ function bindUpload() {
   const input = $('#file-input');
   dz.addEventListener('click', () => input.click());
   dz.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); input.click(); } });
-  input.addEventListener('change', () => {
-    if (input.files.length > 1) {
-      // 多文件：逐一上传（简化：只处理第一个）
-      toast('检测到 ' + input.files.length + ' 个文件，逐个上传中…');
-      for (let i = 0; i < input.files.length; i++) handleUploadFile(input.files[i]);
-    } else if (input.files[0]) {
-      handleUploadFile(input.files[0]);
+  input.addEventListener('change', async () => {
+    const files = Array.from(input.files);
+    if (!files.length) return;
+    const zipFile = files.find(f => /zip$/i.test(f.name));
+    if (zipFile && files.length === 1) {
+      handleUploadFile(zipFile); // 单 ZIP 走 ZIP 流程
+      return;
     }
+    if (files.length > 1) {
+      // 批量上传
+      toast('正在上传 ' + files.length + ' 个文件…');
+      uploadState = { fileName: files.length + ' 个文件', status: 'parsing', progress: 30, message: '上传中…' };
+      render();
+      const fd = new FormData();
+      files.forEach(f => fd.append('files', f));
+      const token = localStorage.getItem('hb_token');
+      try {
+        const res = await fetch('api/uploads', { method: 'POST', headers: { Authorization: '***' + token }, body: fd });
+        const data = await res.json();
+        toast('已提交 ' + data.jobs.length + ' 个解析任务，稍后在「我的题库」查看结果');
+        uploadState = null; render();
+      } catch (e) { toast('批量上传失败：' + e.message, 'err'); uploadState = null; render(); }
+      return;
+    }
+    handleUploadFile(files[0]);
   });
   ['dragover', 'dragenter'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.add('drag'); }));
   ['dragleave', 'drop'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.remove('drag'); }));
