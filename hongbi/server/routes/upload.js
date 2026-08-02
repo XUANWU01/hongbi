@@ -1,14 +1,14 @@
 /* ============================================================
-   红笔 HONGBI v3/v4 · 上传与解析任务
-   v4：job 含质量报告 + stage + 指纹预留
+   红笔 HONGBI v4 · 上传任务（含批量 / ZIP / 取消 / 重试 / 排队）
    ============================================================ */
 'use strict';
 
 const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
+const JSZip = require('jszip');
 const { db } = require('../db.js');
-const { authRequired, uid } = require('../auth.js');
+const { authRequired, uid, rateLimitUpload } = require('../auth.js');
 const { parsePipeline } = require('../parser/pipeline.js');
 
 const MAX_MB = Number(process.env.MAX_UPLOAD_MB || 100);
@@ -24,16 +24,23 @@ const upload = multer({
   limits: { fileSize: MAX_MB * 1024 * 1024, files: 1 },
   fileFilter: (req, file, cb) => {
     const ext = (String(file.originalname || '').split('.').pop() || '').toLowerCase();
-    if (/^(docx|pdf|txt|md|markdown|csv|tsv|json)$/i.test(ext)) cb(null, true);
+    if (/^(docx|pdf|txt|md|markdown|csv|tsv|json|zip)$/i.test(ext)) cb(null, true);
     else cb(new Error('不支持的文件类型：' + (ext || '未知')));
+  }
+});
+const uploadMulti = multer({
+  storage,
+  limits: { fileSize: MAX_MB * 1024 * 1024, files: 20 },
+  fileFilter: (req, file, cb) => {
+    const ext = (String(file.originalname || '').split('.').pop() || '').toLowerCase();
+    if (/^(docx|pdf|txt|md|markdown|csv|tsv|json)$/i.test(ext)) cb(null, true);
+    else cb(null, false); // 跳过不支持的文件
   }
 });
 
 function createJob(owner, fileName, filePath) {
-  const job = {
-    id: uid('j'), owner_id: owner.ownerId, owner_type: owner.ownerType,
-    file_name: fileName, file_path: filePath, status: 'pending', created_at: Date.now()
-  };
+  const job = { id: uid('j'), owner_id: owner.ownerId, owner_type: owner.ownerType,
+    file_name: fileName, file_path: filePath, status: 'pending', created_at: Date.now() };
   db.prepare('INSERT INTO upload_jobs (id, owner_id, owner_type, file_name, file_path, status, created_at) VALUES (?,?,?,?,?,?,?)')
     .run(job.id, job.owner_id, job.owner_type, job.file_name, job.file_path, job.status, job.created_at);
   return job.id;
@@ -67,24 +74,88 @@ function jobToJSON(job) {
   return {
     id: job.id, status: job.status, fileName: job.file_name,
     format: job.format, total: job.total, skipped: job.skipped,
-    samples: safeParse(job.samples, []),
-    questions: safeParse(job.questions, []), warnings: safeParse(job.warnings, []),
+    samples: safeParse(job.samples, []), warnings: safeParse(job.warnings, []),
+    questions: safeParse(job.questions, []),
     quality: safeParse(job.quality, null), error: job.error, createdAt: job.created_at
   };
 }
 
 function registerUploadRoutes(app) {
-  app.post('/api/upload', authRequired, upload.single('file'), (req, res) => {
+  // 单文件上传
+  app.post('/api/upload', authRequired, (req, res, next) => {
+    try { rateLimitUpload(req.auth, parseInt(req.headers['content-length']) || 0); } catch (e) { return res.status(429).json({ error: e.message }); }
+    next();
+  }, upload.single('file'), (req, res) => {
     if (!req.file) { res.status(400).json({ error: '未收到文件' }); return; }
     const jobId = createJob(req.auth, req.file.originalname, req.file.path);
     setImmediate(() => runJob(jobId));
     res.json({ jobId });
   }, (err, req, res, next) => { res.status(400).json({ error: err.message || '上传失败' }); });
 
+  // 批量上传（多文件，一次最多 20 个）
+  app.post('/api/uploads', authRequired, uploadMulti.array('files', 20), (req, res) => {
+    if (!req.files || !req.files.length) { res.status(400).json({ error: '未收到有效文件' }); return; }
+    const jobs = req.files.map(f => {
+      const jobId = createJob(req.auth, f.originalname, f.path);
+      setImmediate(() => runJob(jobId));
+      return { jobId, fileName: f.originalname };
+    });
+    res.json({ jobs, total: jobs.length });
+  }, (err, req, res, next) => { res.status(400).json({ error: err.message || '上传失败' }); });
+
+  // 获取单个 job 状态（含排队位置）
   app.get('/api/upload/:id', authRequired, (req, res) => {
     const job = db.prepare('SELECT * FROM upload_jobs WHERE id = ?').get(req.params.id);
     if (!job) { res.status(404).json({ error: '任务不存在' }); return; }
-    res.json(jobToJSON(job));
+    const json = jobToJSON(job);
+    if (job.status === 'pending') {
+      json.queuePosition = db.prepare("SELECT COUNT(*) AS n FROM upload_jobs WHERE status='pending' AND created_at < ?").get(job.created_at).n + 1;
+    }
+    res.json(json);
+  });
+
+  // 取消任务
+  app.post('/api/upload/:id/cancel', authRequired, (req, res) => {
+    const job = db.prepare('SELECT * FROM upload_jobs WHERE id = ?').get(req.params.id);
+    if (!job) { res.status(404).json({ error: '任务不存在' }); return; }
+    if (job.status !== 'pending') { res.status(400).json({ error: '只能取消排队中的任务' }); return; }
+    db.prepare("UPDATE upload_jobs SET status='failed', error='用户取消', done_at=? WHERE id=?").run(Date.now(), job.id);
+    try { fs.unlinkSync(job.file_path); } catch(e){}
+    res.json({ ok: true });
+  });
+
+  // 重试失败任务
+  app.post('/api/upload/:id/retry', authRequired, (req, res) => {
+    const job = db.prepare('SELECT * FROM upload_jobs WHERE id = ?').get(req.params.id);
+    if (!job) { res.status(404).json({ error: '任务不存在' }); return; }
+    if (job.status !== 'failed') { res.status(400).json({ error: '只能重试失败的任务' }); return; }
+    db.prepare("UPDATE upload_jobs SET status='pending', error='', done_at=0 WHERE id=?").run(job.id);
+    setImmediate(() => runJob(job.id));
+    res.json({ ok: true });
+  });
+
+  // ZIP 上传解析
+  app.post('/api/upload/zip', authRequired, upload.single('file'), async (req, res) => {
+    if (!req.file || !/zip$/i.test(req.file.originalname || '')) { res.status(400).json({ error: '请上传 ZIP 文件' }); return; }
+    try {
+      const buf = fs.readFileSync(req.file.path);
+      const zip = await JSZip.loadAsync(buf);
+      const jobs = [];
+      const exts = ['docx', 'pdf', 'txt', 'md', 'csv', 'tsv', 'json'];
+      for (const [relPath, entry] of Object.entries(zip.files)) {
+        if (entry.dir) continue;
+        const ext = (relPath.split('.').pop() || '').toLowerCase();
+        if (!exts.includes(ext)) continue;
+        const data = await entry.async('nodebuffer');
+        const tmpPath = path.join(UPLOAD_DIR, uid('z'));
+        fs.writeFileSync(tmpPath, data);
+        const jobId = createJob(req.auth, path.basename(relPath), tmpPath);
+        setImmediate(() => runJob(jobId));
+        jobs.push({ jobId, fileName: path.basename(relPath) });
+      }
+      try { fs.unlinkSync(req.file.path); } catch(e){}
+      res.json({ jobs, total: jobs.length, note: jobs.length === 0 ? 'ZIP 内未找到支持的题库文件（.docx/.pdf/.txt/.csv/.json 等）' : null });
+    } catch (e) { res.status(400).json({ error: 'ZIP 解压失败：' + e.message }); }
   });
 }
 

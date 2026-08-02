@@ -87,7 +87,15 @@ registerAdminRoutes(app);
 
 // 公开健康检查（前端启动探测）
 app.get('/api/health', (req, res) => {
-  res.json({ ok: true, name: 'hongbi-api-v3' });
+  res.json({ ok: true, name: 'hongbi-api-v4' });
+});
+
+// 模板下载
+app.get('/api/templates/:type', (req, res) => {
+  const map = { txt: '测试文档-全题型题库.txt', json: '示例题库-前端.json' };
+  const fn = map[req.params.type];
+  if (!fn) { res.status(404).json({ error: '未知模板类型' }); return; }
+  res.download(path.join(ROOT, 'examples', fn), fn);
 });
 
 // 静态托管前端

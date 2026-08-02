@@ -388,7 +388,7 @@ function renderUpload() {
       '<div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="选择题库文件">' +
         '<span class="dz-icon">⇪</span><h3>把题库文档拖到这里</h3><p>或者点击选择文件</p>' +
         '<p class="dz-formats">.docx&nbsp;.pdf&nbsp;.txt&nbsp;.md&nbsp;.csv&nbsp;.tsv&nbsp;.json</p>' +
-        '<input type="file" id="file-input" accept=".docx,.pdf,.txt,.md,.markdown,.csv,.tsv,.json" hidden>' +
+        '<input type="file" id="file-input" accept=".docx,.pdf,.txt,.md,.markdown,.csv,.tsv,.json,.zip" multiple hidden>' +
       '</div>' +
       '<div style="margin-top:22px;text-align:center">' +
         '<a class="btn btn-ghost btn-sm" href="examples/示例题库-计算机.txt" download>下载 TXT 示例</a>' +
@@ -480,7 +480,15 @@ function bindUpload() {
   const input = $('#file-input');
   dz.addEventListener('click', () => input.click());
   dz.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); input.click(); } });
-  input.addEventListener('change', () => { if (input.files[0]) handleUploadFile(input.files[0]); });
+  input.addEventListener('change', () => {
+    if (input.files.length > 1) {
+      // 多文件：逐一上传（简化：只处理第一个）
+      toast('检测到 ' + input.files.length + ' 个文件，逐个上传中…');
+      for (let i = 0; i < input.files.length; i++) handleUploadFile(input.files[i]);
+    } else if (input.files[0]) {
+      handleUploadFile(input.files[0]);
+    }
+  });
   ['dragover', 'dragenter'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.add('drag'); }));
   ['dragleave', 'drop'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.remove('drag'); }));
   dz.addEventListener('drop', e => {
@@ -491,6 +499,40 @@ function bindUpload() {
 
 async function handleUploadFile(file) {
   if (file.size > 100 * 1024 * 1024) { toast('文件超过 100MB 限制', 'err'); return; }
+  const ext = (file.name.split('.').pop() || '').toLowerCase();
+
+  // ZIP 文件：走批量上传
+  if (ext === 'zip') {
+    toast('正在解压 ZIP 并逐个解析…');
+    uploadState = { fileName: file.name, status: 'parsing', progress: 50, message: '上传并解压中…', zipResults: [] };
+    render();
+    try {
+      const fd = new FormData(); fd.append('file', file);
+      const token = localStorage.getItem('hb_token');
+      const res = await fetch('api/upload/zip', { method: 'POST', headers: { Authorization: '***' + token }, body: fd });
+      const data = await res.json();
+      if (!data.jobs || !data.jobs.length) {
+        toast('ZIP 内未找到支持的题库文件', 'err');
+        uploadState = null;
+        render();
+        return;
+      }
+      uploadState.zipJobs = data.jobs;
+      uploadState.message = 'ZIP 解压完成，共 ' + data.jobs.length + ' 个文件，等待解析…';
+      uploadState.progress = 80;
+      render();
+      // 只解析第一个（后续可通过重试任务逐个处理）
+      // 简化：跳转到我的题库列表，提示用户查看各文件解析结果
+      toast('ZIP 内 ' + data.jobs.length + ' 个文件已加入解析队列，稍后在「我的题库」查看结果');
+      uploadState = null;
+      render();
+    } catch (e) {
+      toast('ZIP 上传失败：' + e.message, 'err');
+      uploadState = null; render();
+    }
+    return;
+  }
+
   uploadState = { fileName: file.name, status: 'parsing', progress: 0, message: '上传中…' };
   render();
   try {
