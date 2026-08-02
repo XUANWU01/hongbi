@@ -5,7 +5,7 @@
    ============================================================ */
 'use strict';
 
-const { db } = require('../db.js');
+const { db, auditLog, computeFingerprint } = require('../db.js');
 const { authRequired, requireRole, uid } = require('../auth.js');
 const JSZip = require('jszip');
 
@@ -96,7 +96,8 @@ function registerSetRoutes(app) {
 
   // 从解析任务创建题库（visibility: public=提交审核 / private=私库）
   app.post('/api/sets', authRequired, (req, res) => {
-    const { jobId, title, desc, category, tags, visibility } = req.body || {};
+    const { jobId, title, desc, category, tags, visibility, copyrightConfirmed } = req.body || {};
+    if (!copyrightConfirmed) { res.status(400).json({ error: '请先确认版权声明' }); return; }
     const job = jobId ? db.prepare('SELECT * FROM upload_jobs WHERE id = ?').get(jobId) : null;
     if (!job || job.status !== 'done') { res.status(400).json({ error: '解析任务无效或未完成' }); return; }
     if (job.owner_id !== req.auth.ownerId || job.owner_type !== req.auth.ownerType) {
@@ -108,25 +109,24 @@ function registerSetRoutes(app) {
 
     const questions = safeParse(job.questions, []);
     const shared = visibility === 'public';
-    const set = {
-      id: uid('s'),
-      title: t,
-      desc: String(desc || '').slice(0, 200),
-      category: String(category || '其他').slice(0, 20),
-      tags: Array.isArray(tags) ? tags.map(String).slice(0, 5) : [],
-      source: shared ? 'pending' : 'private',
-      review_status: shared ? 'pending' : 'none',
-      owner_id: req.auth.ownerId,
-      owner_type: req.auth.ownerType,
-      created_at: Date.now()
-    };
-    db.prepare('INSERT INTO sets (id, title, desc, category, tags, source, review_status, owner_id, owner_type, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
-      .run(set.id, set.title, set.desc, set.category, JSON.stringify(set.tags), set.source, set.review_status, set.owner_id, set.owner_type, set.created_at, set.created_at);
-    const ins = db.prepare('INSERT INTO questions (id, set_id, idx, q, options, answer, explanation, type) VALUES (?,?,?,?,?,?,?,?)');
-    questions.forEach((q, i) => ins.run(set.id + '_q' + i, set.id, i, q.q, JSON.stringify(q.options), q.answer, q.explanation, q.type));
-    // 删除已消费的解析任务
+    const setId = uid('s');
+    const now = Date.now();
+    db.prepare('INSERT INTO sets (id, title, desc, category, tags, source, review_status, copyright_confirmed, version, owner_id, owner_type, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)')
+      .run(setId, t, String(desc || '').slice(0, 200), String(category || '其他').slice(0, 20),
+        JSON.stringify(Array.isArray(tags) ? tags.map(String).slice(0, 5) : []),
+        shared ? 'pending' : 'private', shared ? 'pending' : 'none', 1, 1,
+        req.auth.ownerId, req.auth.ownerType, now, now);
+    // 记录版本快照
+    db.prepare('INSERT INTO sets_versions (set_id, version, title, question_count, created_at, operator_id, operator_type) VALUES (?,?,?,?,?,?,?)')
+      .run(setId, 1, t, questions.length, now, req.auth.ownerId, req.auth.ownerType);
+    const insQ = db.prepare('INSERT INTO questions (id, set_id, idx, q, options, answer, explanation, type, fingerprint) VALUES (?,?,?,?,?,?,?,?,?)');
+    questions.forEach((q, i) => {
+      const fp = computeFingerprint(q);
+      insQ.run(setId + '_q' + i, setId, i, q.q, JSON.stringify(q.options), q.answer, q.explanation, q.type, fp);
+    });
     db.prepare('DELETE FROM upload_jobs WHERE id = ?').run(jobId);
-    res.json(setToJSON(db.prepare('SELECT * FROM sets WHERE id = ?').get(set.id)));
+    auditLog(req.auth.ownerId, req.auth.ownerType, 'set_create', 'set', setId, { title: t, questions: questions.length, visibility});
+    res.json(setToJSON(db.prepare('SELECT * FROM sets WHERE id = ?').get(setId)));
   });
 
   // 编辑元信息（owner / admin）

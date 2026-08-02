@@ -26,6 +26,15 @@ function migrateV2() {
   // 答题流水补充 answer_text 列（记录简答/填空的用户作答）
   const acols = db.prepare('PRAGMA table_info(attempt_logs)').all().map(c => c.name);
   if (!acols.includes('answer_text')) db.exec("ALTER TABLE attempt_logs ADD COLUMN answer_text TEXT DEFAULT ''");
+  // v4 新增列
+  const qcols = db.prepare('PRAGMA table_info(questions)').all().map(c => c.name);
+  if (!qcols.includes('fingerprint')) db.exec("ALTER TABLE questions ADD COLUMN fingerprint TEXT DEFAULT ''");
+  if (!qcols.includes('status')) db.exec("ALTER TABLE questions ADD COLUMN status TEXT DEFAULT 'active'");
+  const jcols = db.prepare('PRAGMA table_info(upload_jobs)').all().map(c => c.name);
+  if (!jcols.includes('quality')) db.exec("ALTER TABLE upload_jobs ADD COLUMN quality TEXT DEFAULT ''");
+  const scols = cols; // sets 表列（已在上面取过）
+  if (!scols.includes('copyright_confirmed')) db.exec("ALTER TABLE sets ADD COLUMN copyright_confirmed INTEGER DEFAULT 0");
+  if (!scols.includes('version')) db.exec("ALTER TABLE sets ADD COLUMN version INTEGER DEFAULT 1");
   if (!cols.includes('review_reason')) db.exec("ALTER TABLE sets ADD COLUMN review_reason TEXT DEFAULT ''");
   if (!cols.includes('owner_id')) db.exec("ALTER TABLE sets ADD COLUMN owner_id TEXT DEFAULT ''");
   if (!cols.includes('owner_type')) db.exec("ALTER TABLE sets ADD COLUMN owner_type TEXT DEFAULT ''");
