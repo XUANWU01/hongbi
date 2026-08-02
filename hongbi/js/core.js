@@ -11,6 +11,11 @@ function esc(s) {
     { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
   ));
 }
+function escAttr(s) {
+  return String(s == null ? '' : s).replace(/[&"']/g, c => (
+    { '&': '&amp;', '"': '&quot;', "'": '&#39;' }[c]
+  ));
+}
 
 function fmtDate(ts) {
   const d = new Date(ts);
