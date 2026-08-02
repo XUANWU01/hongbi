@@ -3,7 +3,7 @@
    深空底色 + 霓虹青紫 + 毛玻璃 + 发光动效
    ============================================================ */
 
-:root {
+:root, :root[data-theme="dark-neon"] {
   --bg: #080d1a;
   --bg-2: #0d1526;
   --card: rgba(17, 25, 44, .72);
@@ -887,3 +887,116 @@ kbd { font-family: var(--font-mono); font-size: 10.5px; background: rgba(148, 18
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
+/* 追加：多主题变量组 + 特化样式 */
+
+/* ===== 纸墨经典（暖纸红笔 · 浅色护眼） ===== */
+:root[data-theme="paper"] {
+  --bg: #f3eee2;
+  --bg-2: #eae2cf;
+  --card: rgba(250, 246, 236, .92);
+  --card-hi: #fffdf6;
+  --line: rgba(38, 34, 26, .14);
+  --line-hi: rgba(38, 34, 26, .28);
+  --ink: #26221a;
+  --ink-2: #6b6250;
+  --ink-3: #a89d85;
+  --cyan: #d63b2b;
+  --cyan-2: #b02c1e;
+  --violet: #2b5f8a;
+  --red: #a92a1d;
+  --red-2: #b3402f;
+  --green: #2f7d4f;
+  --amber: #a06a12;
+  --grad: linear-gradient(120deg, #d63b2b, #b3402f);
+  --grad-soft: linear-gradient(120deg, rgba(214, 59, 43, .14), rgba(43, 95, 138, .12));
+  --shadow: 0 14px 36px -16px rgba(70, 52, 22, .4);
+  --font-display: 'ZCOOL XiaoWei', 'Noto Serif SC', 'Songti SC', serif;
+  --font-body: 'Noto Serif SC', 'Songti SC', 'SimSun', serif;
+  --font-mono: 'JetBrains Mono', 'Consolas', monospace;
+}
+:root[data-theme="paper"] .bg-grid { background-image: linear-gradient(rgba(38, 34, 26, .04) 1px, transparent 1px), linear-gradient(90deg, rgba(38, 34, 26, .04) 1px, transparent 1px); }
+:root[data-theme="paper"] .bg-glow-a { background: rgba(214, 59, 43, .09); }
+:root[data-theme="paper"] .bg-glow-b { background: rgba(43, 95, 138, .08); }
+:root[data-theme="paper"] .topbar { background: rgba(243, 238, 226, .86); }
+:root[data-theme="paper"] .brand-name,
+:root[data-theme="paper"] .hero h1 .hl { background: none; -webkit-text-fill-color: currentColor; color: var(--cyan); filter: none; }
+:root[data-theme="paper"] .holo-ring { border-color: rgba(214, 59, 43, .45); box-shadow: 0 0 26px rgba(214, 59, 43, .12), inset 0 0 26px rgba(43, 95, 138, .1); }
+:root[data-theme="paper"] .holo-ring::before { border-color: rgba(43, 95, 138, .4); }
+:root[data-theme="paper"] .holo-scan, :root[data-theme="paper"] .scan-line { opacity: .5; }
+:root[data-theme="paper"] .q-card { box-shadow: 0 10px 30px -14px rgba(70, 52, 22, .35); }
+:root[data-theme="paper"] .modal { background: linear-gradient(170deg, #faf6ec, #f3ecdc); }
+:root[data-theme="paper"] .field input, :root[data-theme="paper"] .field select, :root[data-theme="paper"] .field textarea { background: #fffdf6; }
+
+/* ===== 晨雾（清爽浅蓝 · 极简） ===== */
+:root[data-theme="dawn"] {
+  --bg: #eef4fa;
+  --bg-2: #e2ecf6;
+  --card: rgba(250, 253, 255, .9);
+  --card-hi: #ffffff;
+  --line: rgba(30, 64, 110, .12);
+  --line-hi: rgba(30, 64, 110, .24);
+  --ink: #16283f;
+  --ink-2: #4a6079;
+  --ink-3: #8296ab;
+  --cyan: #2f8fd6;
+  --cyan-2: #1f74b4;
+  --violet: #7c5cd6;
+  --red: #e0403a;
+  --red-2: #c8322c;
+  --green: #2fa06a;
+  --amber: #c98a1b;
+  --grad: linear-gradient(120deg, #2f8fd6, #7c5cd6);
+  --grad-soft: linear-gradient(120deg, rgba(47, 143, 214, .14), rgba(124, 92, 214, .12));
+  --shadow: 0 14px 36px -16px rgba(30, 64, 110, .3);
+}
+:root[data-theme="dawn"] .bg-grid { background-image: linear-gradient(rgba(30, 64, 110, .04) 1px, transparent 1px), linear-gradient(90deg, rgba(30, 64, 110, .04) 1px, transparent 1px); }
+:root[data-theme="dawn"] .bg-glow-a { background: rgba(47, 143, 214, .1); }
+:root[data-theme="dawn"] .bg-glow-b { background: rgba(124, 92, 214, .09); }
+:root[data-theme="dawn"] .topbar { background: rgba(238, 244, 250, .86); }
+:root[data-theme="dawn"] .field input, :root[data-theme="dawn"] .field select, :root[data-theme="dawn"] .field textarea { background: #ffffff; }
+:root[data-theme="dawn"] .modal { background: linear-gradient(170deg, #fbfdff, #eef4fa); }
+
+/* ===== 赛博脉冲（紫红霓虹 · 深色） ===== */
+:root[data-theme="cyber"] {
+  --bg: #14081f;
+  --bg-2: #1d0f2e;
+  --card: rgba(35, 17, 54, .75);
+  --card-hi: rgba(48, 26, 72, .92);
+  --line: rgba(232, 121, 255, .14);
+  --line-hi: rgba(232, 121, 255, .3);
+  --ink: #f6ecff;
+  --ink-2: #c9a8e8;
+  --ink-3: #8a6ba8;
+  --cyan: #ff5ea8;
+  --cyan-2: #ff85c0;
+  --violet: #a855f7;
+  --red: #ff3d5e;
+  --red-2: #ff6b84;
+  --green: #4ade80;
+  --amber: #fbbf24;
+  --grad: linear-gradient(120deg, #ff5ea8, #a855f7);
+  --grad-soft: linear-gradient(120deg, rgba(255, 94, 168, .16), rgba(168, 85, 247, .16));
+  --shadow: 0 18px 50px -18px rgba(0, 0, 0, .85);
+}
+:root[data-theme="cyber"] .bg-glow-a { background: rgba(255, 94, 168, .14); }
+:root[data-theme="cyber"] .bg-glow-b { background: rgba(168, 85, 247, .16); }
+
+/* ===== 主题选择器 ===== */
+.theme-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+.theme-card {
+  border: 1px solid var(--line);
+  background: var(--card);
+  border-radius: var(--r-md);
+  padding: 16px;
+  text-align: left;
+  cursor: pointer;
+  transition: all .15s;
+}
+.theme-card:hover { border-color: var(--cyan); transform: translateY(-2px); box-shadow: 0 0 16px rgba(34, 211, 238, .15); }
+.theme-card[data-current="1"] { border-color: var(--cyan); box-shadow: 0 0 0 1px var(--cyan), 0 0 18px rgba(34, 211, 238, .2); }
+.theme-card .theme-icon { font-size: 26px; display: block; margin-bottom: 6px; }
+.theme-card b { font-size: 14.5px; }
+.theme-card p { margin: 3px 0 0; font-size: 12px; color: var(--ink-3); }
+.theme-btn { padding: 6px 10px; font-size: 13px; }
+@media (max-width: 620px) { .theme-grid { grid-template-columns: 1fr; } }
+

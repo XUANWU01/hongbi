@@ -28,6 +28,22 @@ function relTime(ts) {
 
 const CATEGORIES = ['计算机', '前端', '语言学习', '数学', '历史', '职场', '常识', '其他'];
 
+/* ---------- 主题系统 ---------- */
+const THEMES = [
+  { id: 'dark-neon', name: '暗夜科技', desc: '深空霓虹 · 默认', icon: '◈' },
+  { id: 'paper', name: '纸墨经典', desc: '暖纸红笔 · 护眼', icon: '✒' },
+  { id: 'dawn', name: '晨雾', desc: '清爽浅蓝 · 极简', icon: '☁' },
+  { id: 'cyber', name: '赛博脉冲', desc: '紫红霓虹 · 深色', icon: '◉' }
+];
+function getTheme() { return localStorage.getItem('hb_theme') || 'dark-neon'; }
+function applyTheme(id) {
+  const t = id || getTheme();
+  localStorage.setItem('hb_theme', t);
+  document.documentElement.dataset.theme = t;
+  const btn = $('#theme-btn');
+  if (btn) { const m = THEMES.find(x => x.id === t); btn.textContent = m ? m.icon : '◈'; btn.title = '切换主题（当前：' + (m ? m.name : '') + '）'; }
+}
+
 function shuffle(arr) {
   const a = arr.slice();
   for (let i = a.length - 1; i > 0; i--) {

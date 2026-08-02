@@ -710,6 +710,7 @@ function revealChoice(oi) {
   s.answered++;
   if (isCorrect) s.correct++; else { s.wrongIdx.push(q.id); }
   ServerAPI.answer(s.setId, q.id, isCorrect).catch(() => {});
+  refreshWrongBadge();
   if (isCorrect && s.mode === 'wrong') ServerAPI.learnedWrong(q.id).catch(() => {});
 
   $$('.q-option').forEach((el, i) => {
@@ -735,6 +736,7 @@ function markKnown(v) {
   if (isCorrect) { s.correct++; if (s.mode === 'wrong') ServerAPI.learnedWrong(q.id).catch(() => {}); }
   else s.wrongIdx.push(q.id);
   ServerAPI.answer(s.setId, q.id, isCorrect).catch(() => {});
+  refreshWrongBadge();
   const zone = $('#q-answer-zone');
   const actions = $('#q-actions');
   if (zone && actions) {

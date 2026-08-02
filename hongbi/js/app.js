@@ -38,9 +38,39 @@ async function render() {
     view.innerHTML = emptyState('✗', '页面出错了', e.message || '未知错误', '<button class="btn btn-primary btn-sm" data-action="retry">重试</button>');
   }
   window.scrollTo(0, 0);
+  refreshWrongBadge();
 }
 
 /* ---------- 身份 UI ---------- */
+async function refreshWrongBadge() {
+  const badge = $('#wrong-badge');
+  if (!badge) return;
+  try {
+    const data = await ServerAPI.getWrong();
+    const n = data.total || 0;
+    badge.hidden = n === 0;
+    badge.textContent = n > 99 ? '99+' : n;
+  } catch (e) { /* 静默 */ }
+}
+
+function openThemeModal() {
+  const overlay = openModal(
+    '<div class="modal-head"><h3>选择主题</h3><button class="modal-close" data-close-modal aria-label="关闭">✕</button></div>' +
+    '<div class="modal-body"><p class="m-note" style="margin-bottom:12px">选择你喜欢的界面风格，选择后立即生效并自动记住。</p>' +
+    '<div class="theme-grid">' + THEMES.map(t =>
+      '<button class="theme-card" data-theme-id="' + t.id + '" data-current="' + (getTheme() === t.id ? '1' : '0') + '">' +
+      '<span class="theme-icon">' + t.icon + '</span><b>' + t.name + '</b><p>' + t.desc + '</p></button>'
+    ).join('') + '</div></div>'
+  );
+  overlay.addEventListener('click', e => {
+    const t = e.target.closest('[data-theme-id]');
+    if (!t) return;
+    applyTheme(t.dataset.themeId);
+    $$('.theme-card', overlay).forEach(c => c.dataset.current = c.dataset.themeId === t.dataset.themeId ? '1' : '0');
+    toast('已切换主题：' + (THEMES.find(x => x.id === t.dataset.themeId) || {}).name);
+  });
+}
+
 function refreshIdentityUI() {
   const btn = $('#auth-btn');
   const conn = $('#conn-dot');
@@ -113,6 +143,7 @@ document.addEventListener('click', async e => {
   switch (action) {
     case 'retry': render(); break;
     case 'open-auth': openAuthModal(); break;
+    case 'open-theme': openThemeModal(); break;
     case 'go-home': location.hash = '#/home'; break;
 
     /* 首页快捷 */
@@ -291,6 +322,8 @@ window.addEventListener('hashchange', render);
   } catch (e) {
     toast('无法连接服务器：' + e.message, 'err');
   }
+  applyTheme();
   refreshIdentityUI();
+  refreshWrongBadge();
   await render();
 })();
