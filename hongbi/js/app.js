@@ -61,18 +61,23 @@ async function refreshWrongBadge() {
 }
 
 async function refreshNotifBadge() {
-  const badge = $('#notif-badge');
   const btn = $('#notif-btn');
-  if (!btn || !ServerAPI.identity || ServerAPI.identity.type !== 'user') {
-    if (btn) btn.hidden = true;
+  const badge = $('#notif-badge');
+  if (!btn) return;
+  // 仅注册用户显示铃铛
+  if (!ServerAPI.identity || ServerAPI.identity.type !== 'user') {
+    btn.hidden = true;
     return;
   }
+  btn.hidden = false;
   try {
     const data = await ServerAPI.getNotifications();
     const n = data.unread || 0;
-    btn.hidden = n === 0;
-    if (badge) { badge.textContent = n > 99 ? '99+' : n; badge.hidden = n === 0; }
-  } catch (e) { btn.hidden = true; }
+    if (badge) {
+      if (n > 0) { badge.removeAttribute('hidden'); badge.textContent = n > 99 ? '99+' : n; }
+      else { badge.setAttribute('hidden', ''); }
+    }
+  } catch (e) { if (badge) badge.setAttribute('hidden', ''); }
 }
 
 async function refreshReviewBadge() {
@@ -120,10 +125,6 @@ function refreshIdentityUI() {
     }
     if (conn) { conn.classList.add('on'); conn.title = '已连接服务器'; }
     if (adminNav) { adminNav.hidden = !ServerAPI.isAdmin(); }
-    // 通知铃铛：仅注册用户可能显示，设备/访客一律隐藏
-    if (ServerAPI.identity && ServerAPI.identity.type !== 'user') {
-      const btn = $('#notif-btn'); if (btn) btn.hidden = true;
-    }
     refreshNotifBadge();
     refreshReviewBadge();
   } else {
