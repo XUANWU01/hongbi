@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [22]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+          cache-dependency-path: hongbi/package-lock.json
+      - name: Install
+        run: cd hongbi && npm ci --no-audit --no-fund
+      - name: Syntax check
+        run: |
+          for f in hongbi/js/core.js hongbi/js/api.js hongbi/js/views.js hongbi/js/app.js \
+                   hongbi/server/server.js hongbi/server/db.js hongbi/server/auth.js \
+                   hongbi/server/routes/upload.js hongbi/server/routes/sets.js \
+                   hongbi/server/routes/quiz.js hongbi/server/routes/admin.js \
+                   hongbi/server/parser/pipeline.js hongbi/server/parser/DocumentModel.js \
+                   hongbi/server/parser/QualityReport.js hongbi/server/parser/config.js \
+                   hongbi/server/parser/validate.js hongbi/server/parser/normalize.js \
+                   hongbi/server/parser/answer.js \
+                   hongbi/server/parser/strategies/index.js \
+                   hongbi/server/parser/extract/index.js hongbi/server/parser/extract/docx.js \
+                   hongbi/server/parser/extract/pdf.js; do
+            node --check "$f" || exit 1
+          done
+      - name: Parser regression (text)
+        run: |
+          cd hongbi
+          node --check js/parser.js
+          node .cowork-temp/test-parser3.js
+          node .cowork-temp/test-parser4.js
+      - name: Full-type test fixture
+        run: |
+          cd hongbi
+          node -e "
+            const { parsePipeline } = require('./server/parser/pipeline.js');
+            const fs = require('fs');
+            const buf = fs.readFileSync('./examples/测试文档-全题型题库.txt');
+            parsePipeline('fulltypes.txt', buf).then(r => {
+              const ok = r.questions.length >= 18 && r.quality.coverage.answerRate >= 70;
+              console.log(ok ? 'PASS' : 'FAIL', 'questions:', r.questions.length, 'coverage:', r.quality.coverage.answerRate+'%');
+              process.exit(ok ? 0 : 1);
+            });
+          "
