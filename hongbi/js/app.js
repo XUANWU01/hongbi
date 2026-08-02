@@ -278,6 +278,10 @@ document.addEventListener('click', async e => {
       catch (e) { toast('提交失败：' + e.message, 'err'); }
       break;
     }
+    case 'copy-id': {
+      navigator.clipboard.writeText(t.dataset.id).then(() => toast('题库 ID 已复制 ✓')).catch(() => toast('复制失败，请手动复制', 'err'));
+      break;
+    }
     case 'unshare-set': {
       const label = document.querySelector('[data-id="' + t.dataset.id + '"] .chip')?.textContent || '共享';
       const ok = await confirmModal({ title: '转回私库', body: '<p class="m-line">将该题库从' + label + '状态转回私库？</p><p style="font-size:12px;color:var(--ink-3)">转回后仅在「我的题库」可见，不再出现在题库广场。</p>', okText: '确认转入私库' });

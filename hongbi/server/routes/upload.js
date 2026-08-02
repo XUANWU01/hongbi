@@ -39,11 +39,20 @@ const uploadMulti = multer({
 });
 
 function createJob(owner, fileName, filePath) {
+  // 修复 Windows/multer 中文文件名编码：Latin-1 字节 → UTF-8
+  const safeName = decodeFileName(fileName);
   const job = { id: uid('j'), owner_id: owner.ownerId, owner_type: owner.ownerType,
-    file_name: fileName, file_path: filePath, status: 'pending', created_at: Date.now() };
+    file_name: safeName, file_path: filePath, status: 'pending', created_at: Date.now() };
   db.prepare('INSERT INTO upload_jobs (id, owner_id, owner_type, file_name, file_path, status, created_at) VALUES (?,?,?,?,?,?,?)')
     .run(job.id, job.owner_id, job.owner_type, job.file_name, job.file_path, job.status, job.created_at);
   return job.id;
+}
+
+/** multer/busboy 在 Windows 上把 UTF-8 文件名当作 Latin-1 解析，需反向还原 */
+function decodeFileName(name) {
+  try {
+    return Buffer.from(String(name || ''), 'latin1').toString('utf8');
+  } catch (e) { return String(name || ''); }
 }
 
 async function runJob(jobId) {

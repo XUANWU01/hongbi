@@ -110,6 +110,7 @@ function setCard(s, i) {
     '<h3>' + esc(s.title) + '</h3>' +
     '<p class="set-desc">' + esc(s.desc || '暂无描述') + '</p>' +
     '<div class="set-meta"><span>' + s.questionCount + ' 题</span>' +
+    '<span style="font-size:10px;opacity:.4">ID: ' + s.id + '</span>' +
     (s.tags && s.tags.length ? '<span>#' + esc(s.tags.join(' #')) + '</span>' : '') + '</div>' +
     '<div class="set-actions">' +
       '<button class="btn btn-primary btn-sm" data-action="start-quiz" data-id="' + s.id + '">开始刷题</button>' +
@@ -207,7 +208,7 @@ function setRow(s) {
     '<div class="row-main">' +
       '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span class="row-title">' + esc(s.title) + '</span>' + statusBadge + '</div>' +
       (s.reviewStatus === 'rejected' && s.reviewReason ? '<div class="row-sub" style="color:var(--red)">驳回原因：' + esc(s.reviewReason) + '</div>' : '') +
-      '<div class="row-sub">' + s.questionCount + ' 题 · ' + relTime(s.createdAt) + '</div>' +
+      '<div class="row-sub">' + s.questionCount + ' 题 · ' + relTime(s.createdAt) + ' · <code style="font-size:10.5px;opacity:.6;cursor:pointer" title="点击复制题库ID" data-action="copy-id" data-id="' + s.id + '">' + s.id + '</code>' + '</div>' +
     '</div>' +
     '<div class="row-actions">' +
       '<button class="btn btn-sm btn-primary" data-action="start-quiz" data-id="' + s.id + '">刷题</button>' +

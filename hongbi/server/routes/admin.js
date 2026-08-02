@@ -8,6 +8,12 @@ const { db, auditLog } = require('../db.js');
 const { authRequired, requireRole, uid } = require('../auth.js');
 const { qCount, safeParse } = require('./sets.js');
 
+/** 修复 Windows/multer 中文文件名双重编码 */
+function fixFileName(name) {
+  try { return Buffer.from(String(name || ''), 'latin1').toString('utf8'); }
+  catch (e) { return String(name || ''); }
+}
+
 function registerAdminRoutes(app) {
   // 审核队列（pending 列表，按时间倒序）
   app.get('/api/admin/reviews', authRequired, requireRole('admin', 'superadmin'), (req, res) => {
@@ -81,7 +87,7 @@ function registerAdminRoutes(app) {
       "SELECT id, file_name, format, total, skipped, status, created_at FROM upload_jobs WHERE status=? ORDER BY created_at DESC LIMIT ?"
     ).all(status, limit);
     res.json(rows.map(r => ({
-      id: r.id, fileName: r.file_name, format: r.format, total: r.total, skipped: r.skipped,
+      id: r.id, fileName: fixFileName(r.file_name), format: r.format, total: r.total, skipped: r.skipped,
       status: r.status, createdAt: r.created_at
     })));
   });
