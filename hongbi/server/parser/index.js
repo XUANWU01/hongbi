@@ -1,12 +1,11 @@
 /* ============================================================
-   红笔 HONGBI v3 · 服务器端解析入口
-   docx（jszip）/ pdf（pdfjs-dist）提取文字后，走文本状态机解析
+   红笔 HONGBI v3/v4 · 服务器端解析入口（向后兼容）
+   v4 管线已就绪，旧接口继续可用；后续切换时可直调 pipeline.parsePipeline
    ============================================================ */
 'use strict';
 
 const parser = require('./parser.js');
-const JSZip = require('jszip');
-const pdfjs = require('pdfjs-dist/legacy/build/pdf.js');
+const { parsePipeline, ErrorCode: PipelineError } = require('./pipeline.js');
 
 async function extractDocx(buf) {
   const zip = await JSZip.loadAsync(buf);
@@ -47,19 +46,28 @@ const DOC_EXTS = ['docx', 'pdf'];
 function isSupportedExt(ext) { return TEXT_EXTS.includes(ext) || DOC_EXTS.includes(ext); }
 
 async function parseUpload(fileName, buffer) {
-  const ext = (String(fileName).split('.').pop() || '').toLowerCase();
-  if (!isSupportedExt(ext)) throw new Error('不支持的文件类型：' + ext);
-  let text = null;
-  let format = null;
-  if (ext === 'docx') { text = await extractDocx(buffer); format = 'Word 文本提取'; }
-  else if (ext === 'pdf') { text = await extractPdf(buffer); format = 'PDF 文本提取'; }
-  else {
-    text = buffer.toString('utf8').replace(/^\uFEFF/, '');
-    format = ext === 'json' ? 'JSON' : ext === 'csv' ? 'CSV' : ext === 'tsv' ? 'TSV' : '文本';
+  // v4 管线优先（六阶段）：提取→归一化→多策略解析→验证→质量报告
+  try {
+    const result = await parsePipeline(fileName, buffer);
+    if (!result.success && result.errors.length) {
+      // 管线失败：回退旧版解析器作为兜底
+      console.warn('[parser] v4 pipeline partial, falling back to legacy parser');
+    }
+    return {
+      format: result.format,
+      questions: result.questions.map(q => ({
+        q: q.q, options: q.options, answer: q.answer, explanation: q.explanation,
+        type: q.type, _confidence: q.confidence, _issues: q.issues
+      })),
+      skipped: 0,
+      warnings: result.quality ? [result.quality.issueSummary || ''].filter(Boolean)
+        .concat(result.quality.issues.map(i => i.message)) : [],
+      _quality: result.quality,
+      _v4: true,
+    };
+  } catch (e) {
+    throw new Error('解析失败：' + e.message);
   }
-  const res = parser.parseQuestionBank(fileName.replace(/\.[^.]+$/, '') + '.txt', text);
-  res.format = format;
-  return res;
 }
 
 module.exports = { parseUpload, isSupportedExt, TEXT_EXTS, DOC_EXTS };
