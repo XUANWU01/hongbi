@@ -45,6 +45,7 @@ async function render() {
   window.scrollTo(0, 0);
   refreshWrongBadge();
   refreshNotifBadge();
+  refreshReviewBadge();
 }
 
 /* ---------- 身份 UI ---------- */
@@ -61,10 +62,26 @@ async function refreshWrongBadge() {
 
 async function refreshNotifBadge() {
   const badge = $('#notif-badge');
-  if (!badge || !badge.parentElement || badge.parentElement.hidden) return;
+  const btn = $('#notif-btn');
+  if (!btn || !ServerAPI.identity || ServerAPI.identity.type !== 'user') {
+    if (btn) btn.hidden = true;
+    return;
+  }
   try {
     const data = await ServerAPI.getNotifications();
     const n = data.unread || 0;
+    btn.hidden = n === 0;
+    if (badge) { badge.hidden = n === 0; badge.textContent = n > 99 ? '99+' : n; }
+  } catch (e) { btn.hidden = true; }
+}
+
+async function refreshReviewBadge() {
+  const badge = $('#review-badge');
+  const adminNav = $('#admin-nav');
+  if (!badge || !adminNav || adminNav.hidden) return;
+  try {
+    const data = await ServerAPI.getReviews('pending');
+    const n = (data.items || []).length;
     badge.hidden = n === 0;
     badge.textContent = n > 99 ? '99+' : n;
   } catch (e) { /* 静默 */ }
@@ -103,10 +120,9 @@ function refreshIdentityUI() {
     }
     if (conn) { conn.classList.add('on'); conn.title = '已连接服务器'; }
     if (adminNav) { adminNav.hidden = !ServerAPI.isAdmin(); }
-    // 显示通知铃铛（仅登录用户）
-    const notifBtn = $('#notif-btn');
-    if (notifBtn) notifBtn.hidden = !(ServerAPI.identity && ServerAPI.identity.type === 'user');
+    // 通知铃铛由 refreshNotifBadge 控制（有消息才显示）
     refreshNotifBadge();
+    refreshReviewBadge();
   } else {
     btn.textContent = '登录';
     btn.classList.remove('is-user');
