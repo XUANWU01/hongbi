@@ -2,3 +2,4 @@
 server/data/uploads/
 server/data/hongbi.db*
 *.log
+server/data/
