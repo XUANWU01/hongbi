@@ -122,6 +122,8 @@ function openAuthModal() {
     try {
       if (isRegister) await ServerAPI.register(username, password, deviceToken);
       else await ServerAPI.login(username, password, deviceToken);
+      // 存储近期登录用户
+      saveRecentUser(username);
       closeModal();
       refreshIdentityUI();
       toast('欢迎，' + ServerAPI.roleLabel() + ' ✒️');
@@ -129,6 +131,71 @@ function openAuthModal() {
     } catch (e) {
       $('#auth-msg').textContent = e.message;
     }
+  });
+}
+
+/* 近期登录用户存储 */
+function getRecentUsers() {
+  try { return JSON.parse(localStorage.getItem('hb_recent_users') || '[]'); }
+  catch (e) { return []; }
+}
+function saveRecentUser(username) {
+  const list = getRecentUsers().filter(u => u !== username);
+  list.unshift(username);
+  localStorage.setItem('hb_recent_users', JSON.stringify(list.slice(0, 8)));
+}
+
+/* 切换账号弹窗：显示近期用户 */
+function showSwitchAccountModal() {
+  const recents = getRecentUsers();
+  const deviceToken = localStorage.getItem('hb_token');
+  const usersHtml = recents.length
+    ? '<div class="recent-users">' +
+        '<div class="ru-title">最近登录过的账号</div>' +
+        recents.map((u, i) =>
+          '<button class="ru-card" data-switch-user="' + escAttr(u) + '">' +
+            '<span class="ru-avatar">' + esc(u).slice(0, 1).toUpperCase() + '</span>' +
+            '<span class="ru-name">' + esc(u) + '</span>' +
+          '</button>').join('') +
+      '</div>'
+    : emptyState('👤', '还没有登录记录', '登录后这里会显示最近用过的账号', '');
+
+  const overlay = openModal(
+    '<div class="modal-head"><h3>切换账号</h3><button class="modal-close" data-close-modal aria-label="关闭">✕</button></div>' +
+    '<div class="modal-body">' + usersHtml +
+      '<div class="hr" style="margin:16px 0"></div>' +
+      '<div class="form-grid">' +
+        '<div class="field"><label>用户名</label><input id="sw-user" placeholder="输入其他账号名"></div>' +
+        '<div class="field"><label>密码</label><input id="sw-pass" type="password" placeholder="至少 6 位"></div>' +
+        '<div id="sw-msg" style="font-size:12.5px;color:var(--red);min-height:18px"></div>' +
+        '<button class="btn btn-primary btn-block" id="sw-login">登录</button>' +
+        '<p class="m-note" style="text-align:center;margin-top:8px">或者<a href="#" data-action="open-auth" style="color:var(--cyan-2)">注册新账号</a> · <a href="#" data-action="device-switch" style="color:var(--cyan-2)">设备模式</a></p>' +
+      '</div>' +
+    '</div>'
+  );
+
+  // 点击近期用户 → 自动填用户名
+  $$('[data-switch-user]', overlay).forEach(card => {
+    card.addEventListener('click', () => {
+      $('#sw-user').value = card.dataset.switchUser;
+      $('#sw-pass').focus();
+    });
+  });
+
+  // 登录按钮
+  $('#sw-login').addEventListener('click', async () => {
+    const username = $('#sw-user').value.trim();
+    const password = $('#sw-pass').value;
+    if (!username) { $('#sw-msg').textContent = '请输入用户名'; return; }
+    if (!password) { $('#sw-msg').textContent = '请输入密码'; return; }
+    try {
+      await ServerAPI.login(username, password, deviceToken);
+      saveRecentUser(username);
+      closeModal();
+      refreshIdentityUI();
+      toast('欢迎回来，' + username + ' ✒️');
+      render();
+    } catch (e) { $('#sw-msg').textContent = e.message; }
   });
 }
 
@@ -330,13 +397,22 @@ document.addEventListener('click', async e => {
       refreshIdentityUI();
       break;
     }
+    case 'device-switch': {
+      closeModal();
+      try { await ServerAPI.init(); } catch (e) { /* ignore */ }
+      refreshIdentityUI();
+      if (ServerAPI.identity) toast('已切换为设备模式');
+      render();
+      break;
+    }
     case 'switch-account': {
       try { await ServerAPI.logout(); } catch (e) { /* ignore */ }
       localStorage.removeItem('hb_token');
       ServerAPI.identity = null;
       refreshIdentityUI();
       location.hash = '#/home';
-      setTimeout(() => openAuthModal(), 300);
+      // 显示近期用户选择弹窗
+      setTimeout(() => showSwitchAccountModal(), 300);
       break;
     }
 
