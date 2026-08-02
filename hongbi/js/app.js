@@ -17,6 +17,8 @@ function setActiveNav(path) {
 }
 
 async function render() {
+  // 清理附着在 body 上的下拉菜单
+  document.querySelectorAll('body > .dropdown-menu').forEach(m => m.remove());
   const { path, param, param2 } = parseHash();
   const view = $('#view');
   setActiveNav(path);
@@ -190,7 +192,17 @@ document.addEventListener('click', async e => {
       const menu = document.querySelector('[data-dropdown="share-' + t.dataset.id + '"]');
       if (!menu) break;
       $$('.dropdown-menu:not([hidden])').forEach(m => { if (m !== menu) m.hidden = true; });
-      menu.hidden = !menu.hidden;
+      if (!menu.hidden) { menu.hidden = true; break; }
+      // 弹出到 body 防止遮挡
+      if (menu.parentElement !== document.body) {
+        document.body.appendChild(menu);
+        menu.style.position = 'fixed';
+      }
+      const rect = t.getBoundingClientRect();
+      menu.style.top = (rect.bottom + 4) + 'px';
+      menu.style.right = (window.innerWidth - rect.right) + 'px';
+      menu.style.left = 'auto';
+      menu.hidden = false;
     } break;
     case 'edit-set': editModal(t.dataset.id); break;
     case 'append-set': {
