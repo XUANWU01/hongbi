@@ -71,6 +71,7 @@ const ServerAPI = {
   patchSet(id, fields) { return apiPatch('api/sets/' + encodeURIComponent(id), fields); },
   deleteSet(id) { return apiDelete('api/sets/' + encodeURIComponent(id)); },
   shareSet(id) { return apiPost('api/sets/' + encodeURIComponent(id) + '/share', {}); },
+  unshareSet(id) { return apiPost('api/sets/' + encodeURIComponent(id) + '/unshare', {}); },
   appendQuestions(id, jobId) { return apiPost('api/sets/' + encodeURIComponent(id) + '/questions', { jobId }); },
 
   /* ---------- 上传解析 ---------- */

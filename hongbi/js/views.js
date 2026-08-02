@@ -217,6 +217,7 @@ function setRow(s) {
       '<button class="btn btn-sm btn-ghost" data-action="export-docx" data-id="' + s.id + '">Word</button>' +
       '<button class="btn btn-sm btn-ghost" data-action="export-pdf" data-id="' + s.id + '">PDF</button>' +
       (s.isMine && s.source === 'private' ? '<button class="btn btn-sm btn-ghost" data-action="share-set" data-id="' + s.id + '" style="color:var(--cyan-2);border-color:var(--cyan)">共享到广场</button>' : '') +
+      (s.isMine && (s.source === 'pending' || s.source === 'public') ? '<button class="btn btn-sm btn-ghost" data-action="unshare-set" data-id="' + s.id + '">转为私库</button>' : '') +
       (s.isMine && s.source !== 'official' ? '<button class="btn btn-sm btn-ghost" data-action="edit-set" data-id="' + s.id + '">编辑</button>' : '') +
       (s.isMine && s.source !== 'official' ? '<button class="btn btn-sm btn-danger" data-action="delete-set" data-id="' + s.id + '">删除</button>' : '') +
     '</div></div>';

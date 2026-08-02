@@ -165,6 +165,19 @@ function registerSetRoutes(app) {
     res.json({ ok: true, message: '已提交审核，管理员批准后出现在题库广场' });
   });
 
+  // 共享转私库（撤回共享 / 退回私库）
+  app.post('/api/sets/:id/unshare', authRequired, (req, res) => {
+    const r = db.prepare('SELECT * FROM sets WHERE id = ?').get(req.params.id);
+    if (!r) { res.status(404).json({ error: '题库不存在' }); return; }
+    if (r.source === 'official') { res.status(403).json({ error: '官方题库不可转私' }); return; }
+    if (r.source === 'private') { res.status(400).json({ error: '已是私库' }); return; }
+    if (!isOwner(r, req.auth)) { res.status(403).json({ error: '只能操作自己的题库' }); return; }
+    if (r.source !== 'pending' && r.source !== 'public') { res.status(400).json({ error: '当前状态不支持转为私库' }); return; }
+    db.prepare("UPDATE sets SET source='private', review_status='none', updated_at=? WHERE id=?").run(Date.now(), r.id);
+    auditLog(req.auth.ownerId, req.auth.ownerType, 'set_unshare', 'set', r.id, { title: r.title, from: r.source });
+    res.json({ ok: true, message: '已转回私库' });
+  });
+
   app.delete('/api/sets/:id', authRequired, (req, res) => {
     const r = db.prepare('SELECT * FROM sets WHERE id = ?').get(req.params.id);
     if (!r) { res.status(404).json({ error: '题库不存在' }); return; }
