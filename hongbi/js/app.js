@@ -1,5 +1,5 @@
 /* ============================================================
-   红笔 HONGBI v2 · 应用入口：路由 / 全局事件 / 键盘快捷键 / 启动
+   红笔 HONGBI v3 · 应用入口：路由 / 事件 / 登录 / 快捷键
    ============================================================ */
 'use strict';
 
@@ -12,10 +12,8 @@ function parseHash() {
 }
 
 function setActiveNav(path) {
-  const map = { home: 'home', library: 'library', mine: 'mine', wrong: 'wrong', fav: 'fav', upload: 'upload' };
-  $$('#mainnav a, .bottom-nav a').forEach(a => {
-    a.classList.toggle('active', a.dataset.nav === map[path]);
-  });
+  const map = { home: 'home', library: 'library', mine: 'mine', wrong: 'wrong', fav: 'fav', upload: 'upload', admin: 'admin' };
+  $$('#mainnav a, .bottom-nav a').forEach(a => a.classList.toggle('active', a.dataset.nav === map[path]));
 }
 
 async function render() {
@@ -24,206 +22,228 @@ async function render() {
   setActiveNav(path);
   try {
     switch (path) {
-      case 'home': view.innerHTML = renderHome(); break;
+      case 'home': await renderHome(); break;
       case 'library': await renderLibrary(); break;
-      case 'mine': view.innerHTML = renderMine(); break;
-      case 'upload': view.innerHTML = renderUpload(); bindUpload(); break;
+      case 'mine': await renderMine(); break;
+      case 'upload': renderUpload(); break;
       case 'wrong': await renderWrong(); break;
       case 'fav': await renderFav(); break;
+      case 'admin': await renderAdmin(); break;
       case 'quiz': await renderQuizView(param, param2); return;
-      default: view.innerHTML = renderHome(); break;
+      default: await renderHome(); break;
     }
   } catch (e) {
     console.error(e);
-    view.innerHTML = emptyState('💥', '页面出错了', e.message || '未知错误', '<button class="btn btn-primary btn-sm" data-action="go-home">返回工作台</button>');
+    if (e.message && e.message.includes('未登录')) { openAuthModal(); return; }
+    view.innerHTML = emptyState('✗', '页面出错了', e.message || '未知错误', '<button class="btn btn-primary btn-sm" data-action="retry">重试</button>');
   }
   window.scrollTo(0, 0);
-  refreshWrongBadge();
 }
 
-/* ---------- 服务模式指示 ---------- */
-function updateServerPill() {
-  const pill = $('#server-pill');
-  if (!pill) return;
-  const online = typeof ServerAPI !== 'undefined' && ServerAPI.online;
-  pill.className = 'server-pill ' + (online ? 'online' : 'offline');
-  pill.textContent = online ? '☁ 云端共享' : '本地模式';
-  pill.title = online ? '已连接服务器：公共主题库实时同步' : '未连接服务器：数据仅保存在本机（node server/server.js 开启共享）';
+/* ---------- 身份 UI ---------- */
+function refreshIdentityUI() {
+  const btn = $('#auth-btn');
+  const conn = $('#conn-dot');
+  const adminNav = $('#admin-nav');
+  if (!btn) return;
+  if (ServerAPI.identity) {
+    btn.textContent = ServerAPI.roleLabel();
+    btn.classList.add('is-user');
+    if (conn) { conn.classList.add('on'); conn.title = '已连接服务器'; }
+    if (adminNav) { adminNav.hidden = !ServerAPI.isAdmin(); }
+  } else {
+    btn.textContent = '登录';
+    btn.classList.remove('is-user');
+  }
+}
+
+function openAuthModal() {
+  const overlay = openModal(
+    '<div class="modal-head"><h3>登录红笔</h3><button class="modal-close" data-close-modal aria-label="关闭">✕</button></div>' +
+    '<div class="modal-body">' +
+      '<div class="auth-tabs">' +
+        '<button class="auth-tab active" data-auth-tab="login">登录</button>' +
+        '<button class="auth-tab" data-auth-tab="register">注册</button>' +
+      '</div>' +
+      '<div class="form-grid" style="margin-top:14px">' +
+        '<div class="field"><label>用户名</label><input id="a-user" autocomplete="username" placeholder="2-30 个字符"></div>' +
+        '<div class="field"><label>密码</label><input id="a-pass" type="password" autocomplete="current-password" placeholder="至少 6 位"></div>' +
+        '<div id="auth-msg" style="font-size:12.5px;color:var(--red);min-height:18px"></div>' +
+        '<button class="btn btn-primary btn-block" id="auth-submit">登录</button>' +
+        '<p class="m-note" style="text-align:center">登录后自动合并当前设备的题库与进度；<br>不注册也可以继续以「访客」身份使用。</p>' +
+      '</div>' +
+    '</div>'
+  );
+  const deviceToken = localStorage.getItem('hb_token');
+
+  $$('.auth-tab', overlay).forEach(tab => tab.addEventListener('click', () => {
+    $$('.auth-tab', overlay).forEach(t => t.classList.toggle('active', t === tab));
+    $('#auth-submit').textContent = tab.dataset.authTab === 'register' ? '注册' : '登录';
+  }));
+
+  $('#auth-submit').addEventListener('click', async () => {
+    const username = $('#a-user').value.trim();
+    const password = $('#a-pass').value;
+    const isRegister = $('#auth-submit').textContent === '注册';
+    try {
+      if (isRegister) await ServerAPI.register(username, password, deviceToken);
+      else await ServerAPI.login(username, password, deviceToken);
+      closeModal();
+      refreshIdentityUI();
+      toast('欢迎，' + ServerAPI.roleLabel() + ' ✒️');
+      render();
+    } catch (e) {
+      $('#auth-msg').textContent = e.message;
+    }
+  });
 }
 
 /* ============================================================
-   全局事件（事件委托）
+   全局事件
    ============================================================ */
 document.addEventListener('click', async e => {
   const t = e.target.closest('[data-action],[data-close-modal],[data-start],[data-cat],[data-edit-ok]');
   if (!t) return;
-
   if (t.hasAttribute('data-close-modal')) { closeModal(); return; }
-  if (t.hasAttribute('data-start')) { const id = t.dataset.start; closeModal(); location.hash = '#/quiz/' + id; return; }
+  if (t.hasAttribute('data-start')) { closeModal(); location.hash = '#/quiz/' + t.dataset.start; return; }
   if (t.hasAttribute('data-cat')) { libraryState.cat = t.dataset.cat; libraryState.page = 1; render(); return; }
-  if (t.hasAttribute('data-edit-ok')) return; // 由 editModal 内部处理
+  if (t.hasAttribute('data-edit-ok')) return;
 
   const action = t.dataset.action;
-  const online = typeof ServerAPI !== 'undefined' && ServerAPI.online;
-
   switch (action) {
+    case 'retry': render(); break;
+    case 'open-auth': openAuthModal(); break;
     case 'go-home': location.hash = '#/home'; break;
 
-    case 'dismiss-seen': Store.set(KEY_SEEN, true); render(); break;
-
-    case 'theme-toggle':
-      Store.set(KEY_PREF, Object.assign(pref(), { dark: !pref().dark }));
-      applyTheme();
-      break;
-
-    /* ---- 首页 ---- */
-    case 'quick-continue': {
-      const last = Store.get(KEY_STATS, { sessions: [] }).sessions[0];
-      if (last) location.hash = '#/quiz/' + last.setId;
-      else toast('还没有刷题记录', 'err');
-      break;
-    }
+    /* 首页快捷 */
     case 'quick-daily': {
-      const sets = allSets();
-      const cand = sets.filter(s => qCount(s) > 0);
-      if (!cand.length) { toast('还没有题库，先上传一份吧', 'err'); location.hash = '#/upload'; break; }
+      const data = await ServerAPI.listSets({ size: 50 });
+      const cand = data.sets.filter(s => s.questionCount > 0);
+      if (!cand.length) { toast('题库是空的', 'err'); location.hash = '#/upload'; break; }
       location.hash = '#/quiz/' + cand[Math.floor(Math.random() * cand.length)].id + '/daily';
       break;
     }
-    case 'replay-set': location.hash = '#/quiz/' + t.dataset.id; break;
+    case 'quick-library': location.hash = '#/library'; break;
+    case 'quick-import': importModal(); break;
+    case 'quick-admin': location.hash = '#/admin'; break;
 
-    /* ---- 题库 ---- */
+    /* 题库 */
     case 'start-quiz': location.hash = '#/quiz/' + t.dataset.id; break;
-    case 'start-mode': {
-      const set = await ensureSet(t.dataset.id);
-      if (set) startSessionMode(set, t.dataset.mode);
-      break;
-    }
-    case 'resume-quiz': {
-      if (session) renderQuiz();
-      else { location.hash = '#/quiz/' + t.dataset.id; }
-      break;
-    }
-    case 'preview': {
-      const set = await ensureSet(t.dataset.id);
-      if (set) previewModal(set);
-      break;
-    }
+    case 'start-mode': await startSessionMode(t.dataset.id, t.dataset.mode); break;
+    case 'preview': await previewModal(t.dataset.id); break;
     case 'preview-question': {
-      const set = await ensureSet(t.dataset.id);
-      if (set) questionAnswerModal(set, (set.questions || [])[+t.dataset.idx]);
+      try {
+        const w = (await ServerAPI.getWrong()).items.find(x => x.questionId === t.dataset.qid);
+        const f = w || (await ServerAPI.getFavs()).items.find(x => x.questionId === t.dataset.qid);
+        questionModal(w || f);
+      } catch (e) { toast(e.message, 'err'); }
       break;
     }
     case 'page-prev': if (libraryState.page > 1) { libraryState.page--; render(); } break;
     case 'page-next': libraryState.page++; render(); break;
 
-    /* ---- 我的题库 ---- */
-    case 'export': { const set = await ensureSet(t.dataset.id); if (set) exportSet(set, false); break; }
-    case 'export-csv': { const set = await ensureSet(t.dataset.id); if (set) exportSet(set, true); break; }
-    case 'edit-set': { const set = await ensureSet(t.dataset.id); if (set) editModal(set); break; }
+    /* 我的题库 */
+    case 'edit-set': editModal(t.dataset.id); break;
     case 'append-set': {
-      const set = await ensureSet(t.dataset.id);
-      if (!set) break;
-      uploadState = { appendSetId: set.id, appendTitle: set.title, appendCount: qCount(set) };
+      uploadState = { appendSetId: t.dataset.id, appendTitle: t.dataset.title || '', appendCount: Number(t.dataset.count || 0) };
       location.hash = '#/upload';
       break;
     }
     case 'delete-set': {
-      const set = await ensureSet(t.dataset.id);
-      if (!set) break;
-      const blockReason = (online && set.source === 'official') ? '官方精选题库不可删除。'
-        : (online && set.source === 'public' && !isMine(set)) ? '云端模式下只能删除自己的贡献。' : null;
-      if (blockReason) { toast(blockReason, 'err'); break; }
-      const ok = await confirmModal({
-        title: '删除题库',
-        body: '<p class="m-line">确定删除「' + esc(set.title) + '」吗？共 ' + qCount(set) + ' 题。' +
-          (set.source === 'public' ? '<br><span style="color:var(--red-deep)">它是公共主题库中的共享内容，删除后其他用户将无法继续刷到它。</span>' : '') + '</p>',
-        okText: '删除', danger: true
-      });
+      const ok = await confirmModal({ title: '删除题库', body: '<p class="m-line">确定删除该题库吗？删除后不可恢复。</p>', okText: '删除', danger: true });
       if (!ok) break;
-      try {
-        if (set.source === 'public' && online) { await ServerAPI.remove(set.id); toast('已从云端删除「' + set.title + '」'); }
-        else {
-          if (set.source === 'public') Store.set(KEY_PUBLIC, publicSets().filter(s => s.id !== set.id));
-          else Store.set(KEY_PRIVATE, privateSets().filter(s => s.id !== set.id));
-          toast('已删除「' + set.title + '」');
-        }
-        render();
-      } catch (err) { toast('删除失败：' + err.message, 'err'); }
+      try { await ServerAPI.deleteSet(t.dataset.id); toast('已删除'); render(); }
+      catch (e) { toast('删除失败：' + e.message, 'err'); }
       break;
     }
 
-    /* ---- 错题 / 收藏 ---- */
+    /* 错题 / 收藏 */
     case 'wrong-quiz': location.hash = '#/quiz/' + t.dataset.id + '/wrong'; break;
-    case 'wrong-preview': {
-      const set = await ensureSet(t.dataset.id);
-      if (set) questionAnswerModal(set, (set.questions || [])[+t.dataset.idx]);
-      break;
-    }
     case 'wrong-learned':
-      clearWrongItem(t.dataset.id, +t.dataset.idx);
-      toast('已掌握，移出错题本 ✓');
-      render();
+      try { await ServerAPI.learnedWrong(t.dataset.qid); toast('已掌握，移出错题本 ✓'); render(); }
+      catch (e) { toast(e.message, 'err'); }
       break;
     case 'clear-wrong': {
-      const ok = await confirmModal({ title: '清空错题本', body: '<p class="m-line">将移除错题本中的全部 ' + wrongCount() + ' 条记录，且无法恢复。</p>', okText: '清空', danger: true });
-      if (ok) { clearAllWrong(); render(); toast('错题本已清空'); }
+      const ok = await confirmModal({ title: '清空错题本', body: '<p class="m-line">将清空全部错题记录，且无法恢复。</p>', okText: '清空', danger: true });
+      if (ok) { await ServerAPI.clearWrong(); toast('错题本已清空'); render(); }
       break;
     }
-    case 'fav': {
-      const s = session;
-      if (!s) break;
-      const idx = +t.dataset.idx;
-      const added = toggleFav(s.set.id, idx, (s.set.questions[idx] || {}).id);
-      toast(added ? '已收藏 ⭐' : '已取消收藏');
-      const btn = $('[data-action="fav"][data-idx="' + idx + '"]');
-      if (btn) { btn.classList.toggle('on', added); btn.textContent = added ? '★' : '☆'; }
+    case 'unfav':
+      try { await ServerAPI.removeFav(t.dataset.qid); toast('已取消收藏'); render(); }
+      catch (e) { toast(e.message, 'err'); }
+      break;
+
+    /* 审核 */
+    case 'review-preview': {
+      const r = await ServerAPI.getReviews('pending');
+      const s = r.items.find(x => x.id === t.dataset.id);
+      if (s) previewModal(s.id);
       break;
     }
-    case 'unfav': {
-      const idx = +t.dataset.idx;
-      const favs = Store.get(KEY_FAV, []);
-      Store.set(KEY_FAV, favs.filter(f => !(f.setId === t.dataset.id && f.qIndex === idx)));
-      toast('已取消收藏');
-      render();
+    case 'review-approve': {
+      const ok = await confirmModal({ title: '批准共享', body: '<p class="m-line">批准后该题库将进入公共主题库，所有人可见。</p>', okText: '批准' });
+      if (!ok) break;
+      try { await ServerAPI.approveReview(t.dataset.id); toast('已批准，题库已进入公共库'); render(); }
+      catch (e) { toast(e.message, 'err'); }
+      break;
+    }
+    case 'review-reject': {
+      const overlay = openModal(
+        '<div class="modal-head"><h3>驳回贡献</h3><button class="modal-close" data-close-modal aria-label="关闭">✕</button></div>' +
+        '<div class="modal-body"><div class="field"><label>驳回原因（必填，将反馈给上传者）</label>' +
+        '<textarea id="reject-reason" maxlength="200" placeholder="如：题目格式混乱 / 存在重复 / 内容不完整"></textarea></div></div>' +
+        '<div class="modal-actions"><button class="btn btn-ghost" data-close-modal>取消</button>' +
+        '<button class="btn btn-danger" id="reject-ok">确认驳回</button></div>'
+      );
+      $('#reject-ok').addEventListener('click', async () => {
+        const reason = $('#reject-reason').value.trim();
+        if (!reason) { toast('必须填写驳回原因', 'err'); return; }
+        try { await ServerAPI.rejectReview(t.dataset.id, reason); closeModal(); toast('已驳回并反馈原因'); render(); }
+        catch (e) { toast(e.message, 'err'); }
+      });
       break;
     }
 
-    /* ---- 上传 / 追加 ---- */
+    /* 上传 */
     case 'upload-reset': uploadState = null; render(); break;
     case 'confirm-public': await submitUpload(true); break;
     case 'confirm-private': await submitUpload(false); break;
     case 'confirm-append': await submitAppend(); break;
 
-    /* ---- 刷题 ---- */
+    /* 刷题 */
     case 'pick': if (session) revealChoice(+t.dataset.oi); break;
     case 'reveal': showAnswerPanel(); break;
     case 'mark': markKnown(+t.dataset.v); break;
     case 'next': nextQuestion(); break;
+    case 'fav': {
+      const qid = t.dataset.qid;
+      if (!qid || !session) break;
+      const btn = $('[data-action="fav"][data-qid="' + qid + '"]');
+      const isOn = btn && btn.textContent === '★';
+      try {
+        if (isOn) { await ServerAPI.removeFav(qid); toast('已取消收藏'); if (btn) btn.textContent = '☆'; }
+        else { await ServerAPI.addFav(qid); toast('已收藏 ⭐'); if (btn) btn.textContent = '★'; }
+      } catch (e) { toast(e.message, 'err'); }
+      break;
+    }
     case 'replay': location.hash = '#/quiz/' + t.dataset.id; break;
     case 'rewrong': location.hash = '#/quiz/' + t.dataset.id + '/wrong'; break;
     case 'quiz-quit': {
       const s = session;
-      const total = s.order.length;
-      const ok = await confirmModal({
-        title: '退出本轮刷题',
-        body: '<p class="m-line">当前进度 ' + Math.min(s.pos + 1, total) + ' / ' + total + ' 题，已答对的会累计到统计中。</p>',
-        okText: '退出', danger: true
-      });
-      if (ok) { session = null; location.hash = '#/quiz/' + s.set.id; }
+      const ok = await confirmModal({ title: '退出本轮刷题', body: '<p class="m-line">已作答 ' + s.answered + ' 题，进度已同步服务器。</p>', okText: '退出', danger: true });
+      if (ok) { session = null; location.hash = '#/quiz/' + s.setId; }
       break;
     }
   }
 });
 
-/* ---------- 键盘快捷键（刷题中） ---------- */
+/* ---------- 键盘快捷键 ---------- */
 document.addEventListener('keydown', e => {
   if (!session || session.done) return;
   if (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
   if ($('#modal-root').innerHTML) return;
-  const tag = $('.q-tag');
-  if (!tag) return;
-  const isChoice = !!$('.q-option');
+  if (!$('.q-tag')) return;
+  const isChoice = session._curIsChoice;
   const answered = !!$('[data-action="next"]');
 
   if (/^[a-dA-D]$/.test(e.key) && isChoice && !answered) {
@@ -253,24 +273,24 @@ document.addEventListener('keydown', e => {
   }
 });
 
-/* ============================================================
-   启动
-   ============================================================ */
+/* ---------- 启动 ---------- */
 window.addEventListener('hashchange', render);
 
 (async function boot() {
-  initData();
-  refreshWrongBadge();
-  updateServerPill();
-  await render();
-  if (typeof ServerAPI !== 'undefined') {
-    const ok = await ServerAPI.check();
-    updateServerPill();
-    if (ok) {
-      // 云端题库可能已变化：刷新广场/首页等依赖列表的视图
-      const { path } = parseHash();
-      if (path === 'library' || path === 'mine' || path === 'home') render();
-      toast('已连接服务器，公共主题库实时共享中 ☁');
-    }
+  // 连接探测（公开接口，无需 token）
+  try {
+    const res = await fetch('api/health', { signal: AbortSignal.timeout(2500) });
+    if (!res.ok) throw new Error('bad');
+  } catch (e) {
+    const conn = $('#conn-dot');
+    if (conn) { conn.classList.add('off'); conn.title = '无法连接服务器'; }
   }
+  // 身份初始化：恢复 token 或设备匿名登录
+  try {
+    await ServerAPI.init();
+  } catch (e) {
+    toast('无法连接服务器：' + e.message, 'err');
+  }
+  refreshIdentityUI();
+  await render();
 })();

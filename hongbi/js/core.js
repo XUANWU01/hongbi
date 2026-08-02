@@ -1,5 +1,5 @@
 /* ============================================================
-   红笔 HONGBI v2 · 核心工具层：DOM / 格式化 / Toast / 模态
+   红笔 HONGBI v3 · 核心工具层：DOM / 格式化 / Toast / 模态 / 请求封装
    ============================================================ */
 'use strict';
 
@@ -26,7 +26,7 @@ function relTime(ts) {
   return fmtDate(ts);
 }
 
-function uid() { return 'u' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+const CATEGORIES = ['计算机', '前端', '语言学习', '数学', '历史', '职场', '常识', '其他'];
 
 function shuffle(arr) {
   const a = arr.slice();
@@ -43,20 +43,15 @@ function normAnswer(s) {
 
 function trunc(s, n) { s = String(s == null ? '' : s); return s.length > n ? s.slice(0, n) + '…' : s; }
 
-function todayKey(ts = Date.now()) {
-  const d = new Date(ts);
-  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-}
-
 /* ---------- Toast ---------- */
-function toast(msg, type = 'ok', ms = 2600) {
+function toast(msg, type = 'ok', ms = 2800) {
   const root = $('#toast-root');
   if (!root) return;
   const el = document.createElement('div');
   el.className = 'toast ' + (type === 'err' ? 'err' : 'ok');
   el.textContent = msg;
   root.appendChild(el);
-  setTimeout(() => { el.style.opacity = '0'; el.style.transform = 'translateY(8px)'; }, ms - 350);
+  setTimeout(() => { el.style.opacity = '0'; el.style.transform = 'translateY(10px)'; }, ms - 400);
   setTimeout(() => el.remove(), ms);
 }
 
@@ -92,13 +87,60 @@ function confirmModal({ title, body, okText = '确定', danger = false }) {
   });
 }
 
-/* ---------- 在线脚本加载（PDF/Word 解析库） ---------- */
-function loadScript(src) {
+/* ---------- 请求封装（带 token 与错误处理） ---------- */
+async function api(method, path, body) {
+  const headers = {};
+  const token = localStorage.getItem('hb_token');
+  if (token) headers.Authorization = 'Bearer ' + token;
+  let payload;
+  if (body !== undefined) {
+    headers['Content-Type'] = 'application/json';
+    payload = JSON.stringify(body);
+  }
+  const res = await fetch(path, { method, headers, body: payload });
+  let data = null;
+  try { data = await res.json(); } catch (e) { /* ignore */ }
+  if (!res.ok) {
+    if (res.status === 401) { localStorage.removeItem('hb_token'); }
+    throw new Error((data && data.error) || '请求失败(' + res.status + ')');
+  }
+  return data;
+}
+const apiGet = (p) => api('GET', p);
+const apiPost = (p, b) => api('POST', p, b);
+const apiPatch = (p, b) => api('PATCH', p, b);
+const apiDelete = (p) => api('DELETE', p);
+
+/* ---------- 上传文件（multipart，带进度回调） ---------- */
+function apiUpload(file, onProgress) {
   return new Promise((resolve, reject) => {
-    const s = document.createElement('script');
-    s.src = src;
-    s.onload = resolve;
-    s.onerror = () => reject(new Error('加载在线解析库失败，请检查网络后重试'));
-    document.head.appendChild(s);
+    const xhr = new XMLHttpRequest();
+    const token = localStorage.getItem('hb_token');
+    xhr.open('POST', 'api/upload');
+    if (token) xhr.setRequestHeader('Authorization', 'Bearer ' + token);
+    xhr.upload.onprogress = e => { if (onProgress && e.lengthComputable) onProgress(Math.round(e.loaded / e.total * 100)); };
+    xhr.onload = () => {
+      try {
+        const data = JSON.parse(xhr.responseText);
+        if (xhr.status >= 400) reject(new Error(data.error || '上传失败'));
+        else resolve(data);
+      } catch (e) { reject(new Error('上传失败')); }
+    };
+    xhr.onerror = () => reject(new Error('网络错误'));
+    const fd = new FormData();
+    fd.append('file', file);
+    xhr.send(fd);
   });
+}
+
+/* ---------- 解析任务轮询 ---------- */
+async function pollJob(jobId, { interval = 1500, maxWait = 120000, onStatus } = {}) {
+  const start = Date.now();
+  for (;;) {
+    const job = await apiGet('api/upload/' + jobId);
+    if (onStatus) onStatus(job);
+    if (job.status === 'done' || job.status === 'failed') return job;
+    if (Date.now() - start > maxWait) throw new Error('解析超时，请稍后重试');
+    await new Promise(r => setTimeout(r, interval));
+  }
 }
