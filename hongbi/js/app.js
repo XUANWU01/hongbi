@@ -71,7 +71,7 @@ async function refreshNotifBadge() {
     const data = await ServerAPI.getNotifications();
     const n = data.unread || 0;
     btn.hidden = n === 0;
-    if (badge) { badge.hidden = n === 0; badge.textContent = n > 99 ? '99+' : n; }
+    if (badge) { badge.textContent = n > 99 ? '99+' : n; badge.hidden = n === 0; }
   } catch (e) { btn.hidden = true; }
 }
 
@@ -83,7 +83,7 @@ async function refreshReviewBadge() {
     const data = await ServerAPI.getReviews('pending');
     const n = (data.items || []).length;
     badge.hidden = n === 0;
-    badge.textContent = n > 99 ? '99+' : n;
+    badge.textContent = n > 99 ? '99+' : (n || '');
   } catch (e) { /* 静默 */ }
 }
 
@@ -120,7 +120,10 @@ function refreshIdentityUI() {
     }
     if (conn) { conn.classList.add('on'); conn.title = '已连接服务器'; }
     if (adminNav) { adminNav.hidden = !ServerAPI.isAdmin(); }
-    // 通知铃铛由 refreshNotifBadge 控制（有消息才显示）
+    // 通知铃铛：仅注册用户可能显示，设备/访客一律隐藏
+    if (ServerAPI.identity && ServerAPI.identity.type !== 'user') {
+      const btn = $('#notif-btn'); if (btn) btn.hidden = true;
+    }
     refreshNotifBadge();
     refreshReviewBadge();
   } else {

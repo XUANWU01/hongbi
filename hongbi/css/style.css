@@ -1198,3 +1198,4 @@ kbd { font-family: var(--font-mono); font-size: 10.5px; background: rgba(148, 18
 .notif-time { font-size:11px; color:var(--ink-3); margin-top:3px; }
 .notif-footer { padding:8px 16px; text-align:center; border-top:1px solid var(--line); }
 .notif-empty { padding:32px 16px; text-align:center; color:var(--ink-3); font-size:13px; }
+.notif-btn[hidden], .notif-badge[hidden], .nav-badge[hidden] { display:none !important; }
