@@ -232,7 +232,8 @@ const PARSER = (() => {
 
     const RE_NUM   = /^\d{1,4}[.、)）]\s*(.+)/;
     const RE_QMARK = /^(q|问|题目|题干)\s*[:：]\s*(.+)/i;
-    const RE_AMARK = /^(答案|参考答案|answer|ans)\s*[:：]\s*(.+)/i;
+    const RE_AMARK = /^(?:(?:正确|参考|标准)?答案|answer|ans)\s*[:：]\s*(.+)/i;
+    const RE_AMARK2 = /^【(?:正确|参考|标准)?答案】\s*(.+)/;
     const RE_EMARK = /^(解析|解释|说明|explanation|note)\s*[:：]\s*(.+)/i;
     const RE_OPT   = /^([A-Fa-f])\s*[.、)）．]\s*(.+)/;
 
@@ -240,9 +241,9 @@ const PARSER = (() => {
       if (!raw) { continue; }
       let m;
 
-      if ((m = raw.match(RE_AMARK))) {
+      if ((m = raw.match(RE_AMARK)) || (m = raw.match(RE_AMARK2))) {
         if (!cur) pushQ('');
-        cur.answer = (cur.answer ? cur.answer + ' ' : '') + m[2];
+        cur.answer = (cur.answer ? cur.answer + ' ' : '') + m[1];
         continue;
       }
       if ((m = raw.match(RE_EMARK))) {
