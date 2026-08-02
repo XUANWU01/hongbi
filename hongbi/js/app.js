@@ -82,8 +82,13 @@ function refreshIdentityUI() {
   const adminNav = $('#admin-nav');
   if (!btn) return;
   if (ServerAPI.identity) {
-    btn.textContent = ServerAPI.roleLabel();
-    btn.classList.add('is-user');
+    if (ServerAPI.identity.type === 'device') {
+      btn.textContent = '登录';
+      btn.classList.remove('is-user');
+    } else {
+      btn.textContent = ServerAPI.roleLabel();
+      btn.classList.add('is-user');
+    }
     if (conn) { conn.classList.add('on'); conn.title = '已连接服务器'; }
     if (adminNav) { adminNav.hidden = !ServerAPI.isAdmin(); }
   } else {
@@ -215,7 +220,7 @@ document.addEventListener('click', async e => {
   switch (action) {
     case 'retry': render(); break;
     case 'open-auth':
-      if (ServerAPI.identity) { location.hash = '#/profile'; break; }
+      if (ServerAPI.identity && ServerAPI.identity.type === 'user') { location.hash = '#/profile'; break; }
       openAuthModal(); break;
     case 'open-theme': openThemeModal(); break;
     case 'go-home': location.hash = '#/home'; break;

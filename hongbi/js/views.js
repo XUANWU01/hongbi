@@ -378,6 +378,10 @@ async function renderParserStats() {
    ============================================================ */
 async function renderProfile() {
   const view = $('#view');
+  if (ServerAPI.identity && ServerAPI.identity.type === 'device') {
+    view.innerHTML = '<div class="hero" style="min-height:50vh;display:flex;align-items:center;justify-content:center;flex-direction:column"><h2>👤 访客模式</h2><p style="color:var(--ink-2);margin:8px 0 20px">你当前以设备访客身份使用红笔，没有个人数据页。</p><button class="btn btn-primary" data-action="open-auth">登录或注册账号</button></div>';
+    return;
+  }
   try {
     view.innerHTML = loadingHtml('正在加载个人数据…');
     const data = await ServerAPI.getProfile();
