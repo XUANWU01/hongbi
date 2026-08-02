@@ -160,7 +160,7 @@ function registerSetRoutes(app) {
     if (r.source === 'pending') { res.status(400).json({ error: '已在审核队列中' }); return; }
     if (!isOwner(r, req.auth)) { res.status(403).json({ error: '只能共享自己的题库' }); return; }
     if (r.source !== 'private') { res.status(400).json({ error: '当前状态不支持转为共享' }); return; }
-    db.prepare("UPDATE sets SET source='pending', updated_at=? WHERE id=?").run(Date.now(), r.id);
+    db.prepare("UPDATE sets SET source='pending', review_status='pending', updated_at=? WHERE id=?").run(Date.now(), r.id);
     auditLog(req.auth.ownerId, req.auth.ownerType, 'set_share', 'set', r.id, { title: r.title });
     res.json({ ok: true, message: '已提交审核，管理员批准后出现在题库广场' });
   });
