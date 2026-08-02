@@ -78,12 +78,12 @@ module.exports = (() => {
       const idx = letterToIndex(answer);
       if (idx >= 0 && idx < options.length) answer = options[idx];
       else if (/^[A-Fa-f][A-Fa-f,，、\s]+$/.test(answer)) {
-        // 多选答案（BCD / B,C,D）：转为选项文本，简答式展示完整答案
+        // 多选答案（BCD / B,C,D）：转为选项文本拼接，标记为多选题型（multi）
         const letters = answer.match(/[A-Fa-f]/g) || [];
         const texts = letters.map(l => options[l.toUpperCase().charCodeAt(0) - 65]).filter(Boolean);
         if (texts.length === letters.length && texts.length > 0) {
           answer = texts.join('、');
-          type = 'text';
+          type = 'multi';
         }
       }
     }

@@ -1105,3 +1105,19 @@ kbd { font-family: var(--font-mono); font-size: 10.5px; background: rgba(148, 18
   .btn-upload { font-size: 11px; padding: 6px 8px; }
   .hero-actions .btn { flex: 1 1 100%; }
 }
+
+/* 多选题选中态 */
+.q-option.selected {
+  border-color: var(--cyan);
+  background: rgba(34, 211, 238, .12);
+  box-shadow: 0 0 14px rgba(34, 211, 238, .18);
+}
+.q-option.selected .opt-letter { background: var(--cyan); color: #04121a; border-color: var(--cyan); }
+.multi-count {
+  font-size: 13px;
+  color: var(--ink-2);
+  align-self: center;
+}
+.multi-count b { font-family: var(--font-mono); color: var(--cyan-2); font-size: 15px; }
+:root[data-theme="paper"] .q-option.selected { border-color: var(--red); background: rgba(214, 59, 43, .08); box-shadow: none; }
+:root[data-theme="paper"] .q-option.selected .opt-letter { background: var(--red); color: #fff; border-color: var(--red); }

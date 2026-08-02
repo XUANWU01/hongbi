@@ -247,6 +247,16 @@ document.addEventListener('click', async e => {
 
     /* 刷题 */
     case 'pick': if (session) revealChoice(+t.dataset.oi); break;
+    case 'toggle': {
+      const opt = $('.q-option[data-oi="' + t.dataset.oi + '"]');
+      if (!opt || opt.disabled) break;
+      opt.classList.toggle('selected');
+      const n = $$('.q-option.selected').length;
+      const c = $('#multi-count');
+      if (c) c.innerHTML = '已选 <b>' + n + '</b> 项';
+      break;
+    }
+    case 'submit-multi': submitMulti(); break;
     case 'submit-text': submitText(); break;
     case 'reveal': showAnswerPanel(); break;
     case 'mark': markKnown(+t.dataset.v); break;
@@ -303,6 +313,11 @@ document.addEventListener('keydown', e => {
     return;
   }
   if (e.key === 'Enter') {
+    if (session._curIsMulti && !answered) {
+      const sub = $('[data-action="submit-multi"]');
+      if (sub) { e.preventDefault(); sub.click(); }
+      return;
+    }
     const next = $('[data-action="next"]');
     if (next) { e.preventDefault(); next.click(); }
     return;

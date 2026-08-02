@@ -755,6 +755,15 @@ function renderQuiz() {
   renderQuizBody();
 }
 
+/* 多选判定：type=multi，或答案能拆成 ≥2 个选项文本（兼容旧数据） */
+function isMultiQuestion(q) {
+  if (!q || !q.options || q.options.length < 2) return false;
+  if (q.type === 'multi') return true;
+  if (!q.answer) return false;
+  const parts = String(q.answer).split(/[、,，]/).map(normAnswer).filter(Boolean);
+  return parts.length >= 2 && parts.every(p => q.options.some(o => normAnswer(o) === p));
+}
+
 function renderQuizBody() {
   const body = $('#quiz-body');
   const s = session;
@@ -767,23 +776,37 @@ function renderQuizBody() {
   const total = s.order.length;
 
   const renderQ = (qq, isChoice) => {
-    const isFav = false;
+    const isMulti = isMultiQuestion(qq);
+    session._curIsMulti = isMulti;
+    let optionsHtml = '';
+    let actionHtml = '';
+    if (isChoice) {
+      if (isMulti) {
+        optionsHtml = '<div class="q-options">' + qq.options.map((o, i) =>
+          '<button class="q-option" data-action="toggle" data-oi="' + i + '">' +
+          '<span class="opt-letter">' + 'ABCDEFGH'[i] + '</span><span>' + esc(o) + '</span></button>').join('') + '</div>';
+        actionHtml = '<span class="multi-count" id="multi-count">已选 <b>0</b> 项</span>' +
+          '<button class="btn btn-primary" data-action="submit-multi">提交答案 <kbd>回车</kbd></button>';
+      } else {
+        optionsHtml = '<div class="q-options">' + qq.options.map((o, i) =>
+          '<button class="q-option" data-action="pick" data-oi="' + i + '" data-qid="' + esc(qq.id) + '">' +
+          '<span class="opt-letter">' + 'ABCDEFGH'[i] + '</span><span>' + esc(o) + '</span></button>').join('') + '</div>';
+      }
+    } else {
+      actionHtml = '<div class="q-input"><textarea id="q-input-box" rows="3" placeholder="在这里写下你的答案…（提交后对照参考答案）"></textarea>' +
+        '<div class="q-input-actions"><button class="btn btn-primary" data-action="submit-text">提交答案</button>' +
+        '<button class="btn btn-ghost btn-sm" data-action="reveal">直接看答案</button></div></div>';
+    }
     body.innerHTML = '' +
       '<div class="q-card q-enter">' +
         '<div class="q-card-top">' +
-          '<div class="q-tag">' + (isChoice ? '选择题' : '简答 / 填空') + ' · ' + num + ' / ' + total + '</div>' +
+          '<div class="q-tag">' + (isMulti ? '多选题' : isChoice ? '选择题' : '简答 / 填空') + ' · ' + num + ' / ' + total + '</div>' +
           '<button class="fav-btn" data-action="fav" data-qid="' + esc(qq.id) + '">☆</button>' +
         '</div>' +
         '<p class="q-text">' + esc(qq.q) + '</p>' +
-        (isChoice
-          ? '<div class="q-options">' + qq.options.map((o, i) =>
-              '<button class="q-option" data-action="pick" data-oi="' + i + '" data-qid="' + esc(qq.id) + '">' +
-              '<span class="opt-letter">' + 'ABCDEFGH'[i] + '</span><span>' + esc(o) + '</span></button>').join('') + '</div>'
-          : '<div class="q-input"><textarea id="q-input-box" rows="3" placeholder="在这里写下你的答案…（提交后对照参考答案）"></textarea>' +
-            '<div class="q-input-actions"><button class="btn btn-primary" data-action="submit-text">提交答案</button>' +
-            '<button class="btn btn-ghost btn-sm" data-action="reveal">直接看答案</button></div></div>') +
+        optionsHtml +
         '<div id="q-answer-zone"></div>' +
-        '<div class="q-actions" id="q-actions"></div>' +
+        '<div class="q-actions" id="q-actions">' + actionHtml + '</div>' +
       '</div>';
     session._curQ = qq;
     session._curIsChoice = isChoice;
@@ -827,6 +850,41 @@ function submitText() {
     '</div>';
   actions.innerHTML = '<button class="btn btn-ink" data-action="mark" data-v="1">答对了 ✓</button>' +
     '<button class="btn btn-danger" data-action="mark" data-v="0">答错了 ✗</button>';
+}
+
+function submitMulti() {
+  const s = session;
+  const q = s._curQ;
+  if (!q) return;
+  const selected = $$('.q-option.selected').map(el => +el.dataset.oi);
+  if (!selected.length) { toast('请先选择答案', 'err'); return; }
+  const answerSet = String(q.answer).split(/[、,，]/).map(normAnswer).filter(Boolean);
+  const selSet = selected.map(i => normAnswer(q.options[i]));
+  const hit = selSet.filter(x => answerSet.includes(x)).length;
+  const correct = selSet.length === answerSet.length && hit === answerSet.length;
+  s.answered++;
+  if (correct) s.correct++; else s.wrongIdx.push(q.id);
+  ServerAPI.answer(s.setId, q.id, correct).catch(() => {});
+  refreshWrongBadge();
+  if (correct && s.mode === 'wrong') ServerAPI.learnedWrong(q.id).catch(() => {});
+
+  $$('.q-option').forEach((el, i) => {
+    el.disabled = true;
+    const isAns = answerSet.includes(normAnswer(q.options[i]));
+    const isSel = selSet.includes(normAnswer(q.options[i]));
+    if (isAns) el.classList.add('correct');
+    else if (isSel) el.classList.add('wrong');
+  });
+  const zone = $('#q-answer-zone');
+  const actions = $('#q-actions');
+  if (!zone || !actions) return;
+  zone.innerHTML = '<div class="q-answer">' +
+    '<div class="q-feedback ' + (correct ? 'ok' : 'bad') + '">' + (correct ? '✓ 回答正确（全选对）' : '✗ 回答错误 · 选对 ' + hit + ' / ' + answerSet.length + ' 项') + '</div>' +
+    '<div class="ans-label" style="margin-top:10px">ANSWER</div>' +
+    '<div class="ans-text">' + esc(q.answer) + '</div>' +
+    (q.explanation ? '<div class="ans-exp">' + esc(q.explanation) + '</div>' : '') +
+    '</div>';
+  actions.innerHTML = '<button class="btn btn-primary" data-action="next">' + (s.pos >= s.order.length - 1 ? '查看成绩' : '下一题 →') + '</button>';
 }
 
 function showAnswerPanel() {
