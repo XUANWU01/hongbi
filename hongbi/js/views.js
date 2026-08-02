@@ -212,6 +212,8 @@ function setRow(s) {
     '<div class="row-actions">' +
       '<button class="btn btn-sm btn-primary" data-action="start-quiz" data-id="' + s.id + '">刷题</button>' +
       '<button class="btn btn-sm btn-ghost" data-action="preview" data-id="' + s.id + '">预览</button>' +
+      '<button class="btn btn-sm btn-ghost" data-action="export" data-id="' + s.id + '">JSON</button>' +
+      '<button class="btn btn-sm btn-ghost" data-action="export-csv" data-id="' + s.id + '">CSV</button>' +
       (s.isMine && s.source !== 'official' ? '<button class="btn btn-sm btn-ghost" data-action="edit-set" data-id="' + s.id + '">编辑</button>' : '') +
       (s.isMine && s.source !== 'official' ? '<button class="btn btn-sm btn-danger" data-action="delete-set" data-id="' + s.id + '">删除</button>' : '') +
     '</div></div>';
@@ -572,6 +574,48 @@ function importModal() {
       setTimeout(() => { closeModal(); render(); }, 1200);
     } catch (e) { $('#import-status').textContent = '导入失败：' + e.message; run.disabled = false; }
   });
+}
+
+/* ============================================================
+   导出（拉取全量题目 → JSON / CSV 下载）
+   ============================================================ */
+async function fetchAllQuestions(setId, count) {
+  const qs = [];
+  const limit = 200;
+  for (let off = 0; off < (count || 1); off += limit) {
+    const set = await ServerAPI.getSet(setId, { offset: off, limit });
+    qs.push(...(set.questions || []));
+    if ((set.questions || []).length < limit) break;
+  }
+  return qs;
+}
+
+async function exportSet(setId, asCsv) {
+  try {
+    const meta = await ServerAPI.getSet(setId, { limit: 1 });
+    const qs = await fetchAllQuestions(setId, meta.questionCount);
+    if (!qs.length) { toast('没有可导出的题目', 'err'); return; }
+    let content, name, mime;
+    if (asCsv) {
+      const rows = [['题目', '答案', '选项', '解析']];
+      qs.forEach(q => rows.push([q.q, q.answer, (q.options || []).join('|'), q.explanation]));
+      content = rows.map(r => r.map(c => '"' + String(c == null ? '' : c).replace(/"/g, '""') + '"').join(',')).join('\r\n');
+      name = meta.title + '.csv';
+      mime = 'text/csv;charset=utf-8';
+    } else {
+      content = JSON.stringify({ title: meta.title, desc: meta.desc, category: meta.category, tags: meta.tags, questions: qs }, null, 2);
+      name = meta.title + '.json';
+      mime = 'application/json;charset=utf-8';
+    }
+    const blob = new Blob([content], { type: mime });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(a.href); }, 2000);
+    toast('已导出 ' + name + '（' + qs.length + ' 题）');
+  } catch (e) { toast('导出失败：' + e.message, 'err'); }
 }
 
 /* ============================================================
