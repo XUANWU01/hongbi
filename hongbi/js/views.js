@@ -759,17 +759,7 @@ function renderQuiz() {
 function isMultiQuestion(q) {
   if (!q || !q.options || q.options.length < 2) return false;
   if (q.type === 'multi') return true;
-  if (!q.answer) return false;
-  // 方式1：答案按分隔符拆段，每段恰好等于某选项
-  const parts = String(q.answer).split(/[、,，]/).map(normAnswer).filter(Boolean);
-  if (parts.length >= 2 && parts.every(p => q.options.some(o => normAnswer(o) === p))) return true;
-  // 方式2：选项整段出现在答案中（选项文本内部含逗号/引号时也能识别）
-  const ans = normAnswer(q.answer);
-  const hits = q.options.filter(o => {
-    const no = normAnswer(o);
-    return no.length >= 4 && ans.includes(no);
-  });
-  return hits.length >= 2;
+  return answerOptionIndexes(q).length >= 2;
 }
 
 function renderQuizBody() {
@@ -860,13 +850,35 @@ function submitText() {
     '<button class="btn btn-danger" data-action="mark" data-v="0">答错了 ✗</button>';
 }
 
+/* 答案对应的选项下标集合（基于选项整段匹配，兼容答案文本内含逗号/引号） */
+function answerOptionIndexes(q) {
+  if (!q || !q.options || !q.answer) return [];
+  const ans = normAnswer(q.answer);
+  const idx = [];
+  q.options.forEach((o, i) => {
+    const no = normAnswer(o);
+    if (no.length >= 4 && ans.includes(no)) idx.push(i);
+  });
+  if (idx.length >= 2) return idx; // 多选：整段匹配优先
+  // 单选或短选项：按分隔符拆段匹配
+  const parts = ans.split(/[、,，]/).filter(Boolean);
+  const idx2 = parts.map(p => q.options.findIndex(o => normAnswer(o) === p)).filter(i => i >= 0);
+  return [...new Set(idx2)];
+}
+
+/* 多选答案字母形式（B、D、E） */
+function answerLetters(q) {
+  return answerOptionIndexes(q).map(i => 'ABCDEFGH'[i]).join('、');
+}
+
 function submitMulti() {
   const s = session;
   const q = s._curQ;
   if (!q) return;
   const selected = $$('.q-option.selected').map(el => +el.dataset.oi);
   if (!selected.length) { toast('请先选择答案', 'err'); return; }
-  const answerSet = String(q.answer).split(/[、,，]/).map(normAnswer).filter(Boolean);
+  const ansIdx = answerOptionIndexes(q);
+  const answerSet = ansIdx.map(i => normAnswer(q.options[i]));
   const selSet = selected.map(i => normAnswer(q.options[i]));
   const hit = selSet.filter(x => answerSet.includes(x)).length;
   const correct = selSet.length === answerSet.length && hit === answerSet.length;
@@ -886,10 +898,11 @@ function submitMulti() {
   const zone = $('#q-answer-zone');
   const actions = $('#q-actions');
   if (!zone || !actions) return;
+  const letters = answerLetters(q);
   zone.innerHTML = '<div class="q-answer">' +
-    '<div class="q-feedback ' + (correct ? 'ok' : 'bad') + '">' + (correct ? '✓ 回答正确（全选对）' : '✗ 回答错误 · 选对 ' + hit + ' / ' + answerSet.length + ' 项') + '</div>' +
+    '<div class="q-feedback ' + (correct ? 'ok' : 'bad') + '">' + (correct ? '✓ 回答正确（全部选对）' : '✗ 未得分：多选/少选/错选均不得分（选对 ' + hit + ' / ' + answerSet.length + ' 项）') + '</div>' +
     '<div class="ans-label" style="margin-top:10px">ANSWER</div>' +
-    '<div class="ans-text">' + esc(q.answer) + '</div>' +
+    '<div class="ans-text"><b>' + esc(letters) + '</b>　' + esc(q.answer) + '</div>' +
     (q.explanation ? '<div class="ans-exp">' + esc(q.explanation) + '</div>' : '') +
     '</div>';
   actions.innerHTML = '<button class="btn btn-primary" data-action="next">' + (s.pos >= s.order.length - 1 ? '查看成绩' : '下一题 →') + '</button>';
