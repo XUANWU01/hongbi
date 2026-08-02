@@ -55,6 +55,14 @@ module.exports = (() => {
     return { q: clean(m[1]), answer: clean(m[2]) };
   }
 
+  /* 答案行拆分：把【答案】B。解析：xxx / 答案：B 解析：xxx 拆成 答案字母 + 解析 */
+  function splitAnswerLine(s) {
+    const str = String(s == null ? '' : s).trim();
+    const m = str.match(/^([A-Fa-f,，、\s]{1,12}|正确|错误|对|错)\。?\s*(?:解析\s*[:：]?)?(.*)$/);
+    if (!m) return { answer: clean(str), explanation: '' };
+    return { answer: clean(m[1]), explanation: clean(m[2]) };
+  }
+
   /* 通用归一化：字母答案 -> 选项文本、推断题型；选项缺失时尝试从题干中拆分 */
   function normalize(q) {
     let options = Array.isArray(q.options) ? q.options.map(clean).filter(Boolean) : [];
@@ -230,7 +238,8 @@ module.exports = (() => {
       if (!cur) return;
       const n = normalize(cur);
       if (!n.q && !n.answer && n.options.length === 0) { cur = null; return; }
-      if (!n.answer && n.options.length === 0) smWarnings.push('「' + trunc(n.q || '(空题目)', 16) + '」未检测到答案');
+      if (!n.q) { cur = null; return; } // 空题干丢弃（如孤立答案行/页眉）
+      if (!n.answer && n.options.length === 0) smWarnings.push('「' + trunc(n.q, 16) + '」未检测到答案');
       questions.push(n);
       cur = null;
     };
@@ -246,11 +255,12 @@ module.exports = (() => {
       if (answer) cur.answer = answer;
     };
 
-    const RE_NUM   = /^\d{1,4}[.、)）]\s*(.+)/;
+    const RE_NUM   = /^\d{1,4}[.、)）．]\s*(.+)/;
     const RE_QMARK = /^(q|问|题目|题干)\s*[:：]\s*(.+)/i;
     const RE_AMARK = /^(?:(?:正确|参考|标准)?答案|answer|ans)(?:是|为)?\s*[:：;；]\s*(.+)/i;
     const RE_AMARK2 = /^【(?:正确|参考|标准)?答案】\s*(.+)/;
     const RE_SECTION = /^(?:单选|多选|判断|简答|填空|论述)题\s*[\d，,、 ]*道?题?$/;
+    const RE_NOISE = /^(学员专用|请勿外泄|微信公众|公众号|全国辅警|第[一二三四五六]部分|(?:一|二|三|四|五|六)、|考情分析|真题展示|材料\s*[:：]?$|[-——]?\s*\d+\s*[-—]?$|第\s*\d+\s*页)/;
     const RE_EMARK = /^(解析|解释|说明|explanation|note)\s*[:：]\s*(.+)/i;
     const RE_OPT   = /^([A-Fa-f])\s*[.、)）．]\s*(.+)/;
 
@@ -259,9 +269,12 @@ module.exports = (() => {
       let m;
 
       if ((m = raw.match(RE_SECTION))) { continue; } // 分节标题（单选题/多选题/判断题…）直接跳过
+      if (RE_NOISE.test(raw)) { continue; } // 页眉/页脚/水印噪音行
       if ((m = raw.match(RE_AMARK)) || (m = raw.match(RE_AMARK2))) {
+        const sp = splitAnswerLine(m[1]);
         if (!cur) pushQ('');
-        cur.answer = (cur.answer ? cur.answer + ' ' : '') + m[1];
+        cur.answer = (cur.answer ? cur.answer + ' ' : '') + sp.answer;
+        if (sp.explanation) cur.explanation = (cur.explanation ? cur.explanation + ' ' : '') + sp.explanation;
         continue;
       }
       if ((m = raw.match(RE_EMARK))) {
@@ -284,6 +297,16 @@ module.exports = (() => {
           else cur.explanation = (cur.explanation ? cur.explanation + ' ' : '') + clean(raw);
         }
         continue;
+      }
+      // 同行选项行（A.80 B.96 C.124 D.168 在一行）：整行拆成选项
+      if (/^[A-Fa-f]\s*[.、)）．]/.test(raw) && ((raw.match(/[A-Fa-f]\s*[.、)）．]/g) || []).length >= 2)) {
+        const inline = extractInlineOptions(raw);
+        if (inline && inline.opts.length >= 2) {
+          if (!cur) pushQ('');
+          cur.options.push(...inline.opts);
+          if (!cur.q && inline.q) cur.q = inline.q;
+          continue;
+        }
       }
       // 判断题选项行（正确/错误/对/错）：收集为选项，避免污染题干或解析
       if ((raw === '正确' || raw === '错误' || raw === '对' || raw === '错') && cur) {
