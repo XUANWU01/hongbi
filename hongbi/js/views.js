@@ -310,6 +310,60 @@ async function renderAdmin() {
 }
 
 /* ============================================================
+   审计日志（superadmin）+ 解析质量看板（admin）
+   ============================================================ */
+async function renderAudit() {
+  const view = $('#view');
+  if (!ServerAPI.isAdmin() || ServerAPI.identity.role !== 'superadmin') {
+    view.innerHTML = emptyState('⚑', '需要超级管理员权限', '仅超级管理员可以查看操作审计日志。', '');
+    return;
+  }
+  view.innerHTML = loadingHtml('正在加载审计日志…');
+  try {
+    const data = await apiGet('api/admin/audit?page=1&size=30');
+    const items = data.items || [];
+    var tbl = '';
+    for (var i = 0; i < items.length; i++) {
+      var r = items[i];
+      tbl += '<tr><td style="white-space:nowrap">' + relTime(r.createdAt) + '</td>';
+      tbl += '<td>' + esc(r.actor) + '</td><td>' + esc(r.action) + '</td>';
+      tbl += '<td style="font-family:var(--font-mono);font-size:11px">' + esc(r.target) + '</td>';
+      tbl += '<td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(r.detail || '') + '</td></tr>';
+    }
+    const tableHtml = items.length
+      ? '<div style="overflow-x:auto"><table class="audit-table"><thead><tr><th>时间</th><th>操作者</th><th>动作</th><th>目标</th><th>详情</th></tr></thead><tbody>' + tbl + '</tbody></table></div>'
+      : emptyState('📋', '暂无审计记录', '执行操作后会在这里出现审计日志。', '');
+    view.innerHTML = '<div class="section-head" style="margin-top:6px"><div><h2>操作审计日志</h2>' +
+      '<div class="section-sub">记录所有关键操作：上传、审核、删除、编辑、回滚等</div></div>' +
+      '<span class="chip chip-official">共 ' + data.total + ' 条</span></div>' + tableHtml;
+  } catch (e) { view.innerHTML = emptyState('✗', '加载审计日志失败', e.message, '<button class="btn btn-primary btn-sm" data-action="retry">重试</button>'); }
+}
+
+async function renderParserStats() {
+  const view = $('#view');
+  if (!ServerAPI.isAdmin()) {
+    view.innerHTML = emptyState('⚑', '需要管理员权限', '仅管理员可以查看解析质量看板。', '');
+    return;
+  }
+  view.innerHTML = loadingHtml('正在加载解析统计数据…');
+  try {
+    const stats = await apiGet('api/admin/stats/parser');
+    const rate = stats.total > 0 ? Math.round(stats.success / stats.total * 100) : 0;
+    view.innerHTML = '<div class="section-head" style="margin-top:6px"><div><h2>解析质量看板</h2>' +
+      '<div class="section-sub">上传解析任务总览：成功率、平均覆盖率、失败分布</div></div></div>' +
+      '<div class="stats-grid" style="margin-top:12px">' +
+        '<div class="stat-card"><div class="stat-label">总任务数</div><div class="stat-num">' + stats.total + '</div></div>' +
+        '<div class="stat-card"><div class="stat-label">成功</div><div class="stat-num" style="color:var(--green);text-shadow:0 0 12px var(--green)">' + stats.success + '</div></div>' +
+        '<div class="stat-card"><div class="stat-label">失败</div><div class="stat-num" style="color:var(--red);text-shadow:0 0 12px var(--red)">' + stats.failed + '</div></div>' +
+        '<div class="stat-card"><div class="stat-label">平均覆盖率</div><div class="stat-num" style="color:var(--cyan);text-shadow:0 0 12px var(--cyan)">' + stats.avgCoverage + '%</div></div>' +
+      '</div>' +
+      '<div class="section-head" style="margin-top:24px"><div><h2>成功率</h2></div></div>' +
+      '<div class="ring" style="background:conic-gradient(var(--green) ' + rate + '%, var(--line) 0);margin:16px auto">' +
+        '<div class="ring-inner"><div class="ring-num">' + rate + '%</div><div class="ring-label">上传成功率</div></div></div>';
+  } catch (e) { view.innerHTML = emptyState('✗', '加载看板失败', e.message, '<button class="btn btn-primary btn-sm" data-action="retry">重试</button>'); }
+}
+
+/* ============================================================
    上传 / 追加（job 轮询）
    ============================================================ */
 function renderUpload() {

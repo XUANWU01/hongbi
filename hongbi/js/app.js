@@ -12,7 +12,7 @@ function parseHash() {
 }
 
 function setActiveNav(path) {
-  const map = { home: 'home', library: 'library', mine: 'mine', wrong: 'wrong', fav: 'fav', upload: 'upload', admin: 'admin' };
+  const map = { home:'home', library:'library', mine:'mine', wrong:'wrong', fav:'fav', upload:'upload', admin:'admin', audit:'admin', parser:'admin' };
   $$('#mainnav a, .bottom-nav a').forEach(a => a.classList.toggle('active', a.dataset.nav === map[path]));
 }
 
@@ -29,6 +29,8 @@ async function render() {
       case 'wrong': await renderWrong(); break;
       case 'fav': await renderFav(); break;
       case 'admin': await renderAdmin(); break;
+      case 'audit': await renderAudit(); break;
+      case 'parser': await renderParserStats(); break;
       case 'quiz': await renderQuizView(param, param2); return;
       default: await renderHome(); break;
     }

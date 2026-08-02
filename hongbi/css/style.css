@@ -1143,3 +1143,11 @@ kbd { font-family: var(--font-mono); font-size: 10.5px; background: rgba(148, 18
 .eq-opt-row input { flex:1; }
 .eq-opt-del { padding:2px 8px; font-size:11px; }
 .eq-opt-add { margin-top:4px; }
+
+.audit-table { width:100%; border-collapse:collapse; font-size:13px; }
+.audit-table th { text-align:left; padding:10px 12px; border-bottom:2px solid var(--line-hi); color:var(--ink-3); font-size:11.5px; letter-spacing:.5px; }
+.audit-table td { padding:9px 12px; border-bottom:1px solid var(--line); }
+.audit-table tr:hover td { background: rgba(148,183,255,.05); }
+.admin-subnav { display:flex; gap:10px; margin-bottom:14px; flex-wrap:wrap; }
+.admin-subnav a { padding:6px 14px; border:1px solid var(--line); border-radius:20px; font-size:12.5px; color:var(--ink-2); transition:all .14s; }
+.admin-subnav a.active, .admin-subnav a:hover { border-color:var(--cyan); color:var(--cyan-2); background:rgba(34,211,238,.06); }
