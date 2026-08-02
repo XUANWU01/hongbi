@@ -12,7 +12,7 @@ function parseHash() {
 }
 
 function setActiveNav(path) {
-  const map = { home:'home', library:'library', mine:'mine', wrong:'wrong', fav:'fav', upload:'upload', admin:'admin', audit:'admin', parser:'admin' };
+  const map = { home:'home', library:'library', mine:'mine', wrong:'wrong', fav:'fav', upload:'upload', admin:'admin', audit:'admin', parser:'admin', official:'admin', users:'admin' };
   $$('#mainnav a, .bottom-nav a').forEach(a => a.classList.toggle('active', a.dataset.nav === map[path]));
 }
 

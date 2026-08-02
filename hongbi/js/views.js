@@ -517,6 +517,7 @@ async function renderOfficial() {
   const subNav = '<div class="admin-subnav">' +
     '<a href="#/admin">审核队列</a>' +
     '<a href="#/audit">审计日志</a>' +
+    '<a href="#/users">用户管理</a>' +
     '<a href="#/parser">解析质量</a>' +
     '<a href="#/official" class="active">官方题库</a>' +
     '</div>';
