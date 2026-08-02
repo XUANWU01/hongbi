@@ -850,20 +850,35 @@ function submitText() {
     '<button class="btn btn-danger" data-action="mark" data-v="0">答错了 ✗</button>';
 }
 
-/* 答案对应的选项下标集合（基于选项整段匹配，兼容答案文本内含逗号/引号） */
+/* 答案对应的选项下标集合
+   策略（按优先级）：
+   1) 答案纯字母序列（BDE / B,D,E / B、D、E / B D E）→ 按字母定位选项，完全不看文字与标点；
+   2) 否则选项整段匹配（答案含完整选项文本，选项内部有标点也不受影响）；
+   3) 单选短答案：拆段精确匹配。 */
 function answerOptionIndexes(q) {
   if (!q || !q.options || !q.answer) return [];
-  const ans = normAnswer(q.answer);
-  const idx = [];
+  const raw = String(q.answer);
+  // 1) 纯字母答案：去掉字母后只剩分隔符/空白 => 按字母映射
+  const letters = raw.match(/[A-Fa-f]/g) || [];
+  if (letters.length >= 1) {
+    const residue = raw.replace(/[A-Fa-f]/g, '').replace(/[、,，。;；.\s·\-—]+/g, '');
+    if (residue === '') {
+      const idx = letters.map(l => l.toUpperCase().charCodeAt(0) - 65);
+      if (idx.every(i => i >= 0 && i < q.options.length)) return [...new Set(idx)];
+    }
+  }
+  // 2) 选项整段匹配（文字答案）
+  const ans = normAnswer(raw);
+  const idx2 = [];
   q.options.forEach((o, i) => {
     const no = normAnswer(o);
-    if (no.length >= 4 && ans.includes(no)) idx.push(i);
+    if (no.length >= 4 && ans.includes(no)) idx2.push(i);
   });
-  if (idx.length >= 2) return idx; // 多选：整段匹配优先
-  // 单选或短选项：按分隔符拆段匹配
+  if (idx2.length >= 2) return idx2;
+  // 3) 单选短答案：拆段精确匹配
   const parts = ans.split(/[、,，]/).filter(Boolean);
-  const idx2 = parts.map(p => q.options.findIndex(o => normAnswer(o) === p)).filter(i => i >= 0);
-  return [...new Set(idx2)];
+  const idx3 = parts.map(p => q.options.findIndex(o => normAnswer(o) === p)).filter(i => i >= 0);
+  return [...new Set(idx3)];
 }
 
 /* 多选答案字母形式（B、D、E） */
