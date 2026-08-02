@@ -1,0 +1,19 @@
+{
+  "name": "hongbi",
+  "version": "3.0.0",
+  "description": "红笔 HONGBI · 服务器化刷题平台（题库共享 + 个人进度）",
+  "main": "server/server.js",
+  "scripts": {
+    "start": "node server/server.js"
+  },
+  "engines": {
+    "node": ">=22.5"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "multer": "^1.4.5-lts.1",
+    "pdfjs-dist": "^3.11.174",
+    "jszip": "^3.10.1"
+  },
+  "license": "MIT"
+}
