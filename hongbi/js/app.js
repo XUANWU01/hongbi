@@ -17,8 +17,6 @@ function setActiveNav(path) {
 }
 
 async function render() {
-  // 清理附着在 body 上的下拉菜单
-  document.querySelectorAll('body > .dropdown-menu').forEach(m => m.remove());
   const { path, param, param2 } = parseHash();
   const view = $('#view');
   setActiveNav(path);
@@ -136,10 +134,6 @@ function openAuthModal() {
    全局事件
    ============================================================ */
 document.addEventListener('click', async e => {
-  // 点击外部时关闭所有下拉菜单
-  if (!e.target.closest('.dropdown')) {
-    $$('.dropdown-menu').forEach(m => m.hidden = true);
-  }
   const t = e.target.closest('[data-action],[data-close-modal],[data-start],[data-cat],[data-edit-ok]');
   if (!t) return;
   if (t.hasAttribute('data-close-modal')) { closeModal(); return; }
@@ -148,8 +142,6 @@ document.addEventListener('click', async e => {
   if (t.hasAttribute('data-edit-ok')) return;
 
   const action = t.dataset.action;
-  // 所有非 toggle-share 的操作都关闭下拉菜单
-  if (action !== 'toggle-share') $$('.dropdown-menu').forEach(m => m.hidden = true);
   switch (action) {
     case 'retry': render(); break;
     case 'open-auth': openAuthModal(); break;
@@ -188,22 +180,7 @@ document.addEventListener('click', async e => {
     case 'export-csv': await exportSet(t.dataset.id, true); break;
     case 'export-docx': await exportDocx(t.dataset.id); break;
     case 'export-pdf': await exportPdf(t.dataset.id); break;
-    case 'toggle-share': {
-      const menu = document.querySelector('[data-dropdown="share-' + t.dataset.id + '"]');
-      if (!menu) break;
-      $$('.dropdown-menu:not([hidden])').forEach(m => { if (m !== menu) m.hidden = true; });
-      if (!menu.hidden) { menu.hidden = true; break; }
-      // 弹出到 body 防止遮挡
-      if (menu.parentElement !== document.body) {
-        document.body.appendChild(menu);
-        menu.style.position = 'fixed';
-      }
-      const rect = t.getBoundingClientRect();
-      menu.style.top = (rect.bottom + 4) + 'px';
-      menu.style.right = (window.innerWidth - rect.right) + 'px';
-      menu.style.left = 'auto';
-      menu.hidden = false;
-    } break;
+
     case 'edit-set': editModal(t.dataset.id); break;
     case 'append-set': {
       uploadState = { appendSetId: t.dataset.id, appendTitle: t.dataset.title || '', appendCount: Number(t.dataset.count || 0) };
