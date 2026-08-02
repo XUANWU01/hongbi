@@ -503,7 +503,7 @@ function bindUpload() {
       files.forEach(f => fd.append('files', f));
       const token = localStorage.getItem('hb_token');
       try {
-        const res = await fetch('api/uploads', { method: 'POST', headers: { Authorization: '***' + token }, body: fd });
+        const res = await fetch('api/uploads', { method: 'POST', headers: { Authorization: '*** ' + token }, body: fd });
         const data = await res.json();
         toast('已提交 ' + data.jobs.length + ' 个解析任务，稍后在「我的题库」查看结果');
         uploadState = null; render();
@@ -532,7 +532,7 @@ async function handleUploadFile(file) {
     try {
       const fd = new FormData(); fd.append('file', file);
       const token = localStorage.getItem('hb_token');
-      const res = await fetch('api/upload/zip', { method: 'POST', headers: { Authorization: '***' + token }, body: fd });
+      const res = await fetch('api/upload/zip', { method: 'POST', headers: { Authorization: '*** ' + token }, body: fd });
       const data = await res.json();
       if (!data.jobs || !data.jobs.length) {
         toast('ZIP 内未找到支持的题库文件', 'err');
