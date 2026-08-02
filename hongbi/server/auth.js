@@ -166,6 +166,73 @@ function registerAuthRoutes(app) {
         : { type: 'device', id: req.auth.ownerId, role: 'user' }
     });
   });
+
+  // ===== 用户信息板块 =====
+
+  // 获取个人资料 + 统计数据
+  app.get('/api/user/profile', authRequired, (req, res) => {
+    const user = getUserById(req.auth.ownerId);
+    if (!user) { res.status(404).json({ error: '用户不存在' }); return; }
+    // 统计数据
+    const attempts = db.prepare('SELECT COUNT(*) AS n FROM attempt_logs WHERE owner_id = ? AND owner_type = ?')
+      .get(req.auth.ownerId, req.auth.ownerType).n;
+    const correct = db.prepare('SELECT COUNT(*) AS n FROM attempt_logs WHERE owner_id = ? AND owner_type = ? AND correct = 1')
+      .get(req.auth.ownerId, req.auth.ownerType).n;
+    const wrong = db.prepare('SELECT COUNT(*) AS n FROM wrong_items WHERE owner_id = ? AND owner_type = ?')
+      .get(req.auth.ownerId, req.auth.ownerType).n;
+    const favs = db.prepare('SELECT COUNT(*) AS n FROM favorites WHERE owner_id = ? AND owner_type = ?')
+      .get(req.auth.ownerId, req.auth.ownerType).n;
+    const sets = db.prepare('SELECT COUNT(*) AS n FROM sets WHERE owner_id = ? AND owner_type = ?')
+      .get(req.auth.ownerId, req.auth.ownerType).n;
+    const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const todayStats = db.prepare('SELECT answered, correct AS c FROM stats_daily WHERE owner_id = ? AND owner_type = ? AND day = ?')
+      .get(req.auth.ownerId, req.auth.ownerType, today);
+    // 连续打卡天数
+    let streak = 0;
+    let checkDay = new Date();
+    while (true) {
+      const day = checkDay.toISOString().slice(0, 10).replace(/-/g, '');
+      const d = db.prepare('SELECT answered FROM stats_daily WHERE owner_id = ? AND owner_type = ? AND day = ?')
+        .get(req.auth.ownerId, req.auth.ownerType, day);
+      if (d && d.answered > 0) { streak++; checkDay.setDate(checkDay.getDate() - 1); }
+      else break;
+    }
+    // 近30天热力图
+    const heatmap = [];
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date(); d.setDate(d.getDate() - i);
+      const day = d.toISOString().slice(0, 10).replace(/-/g, '');
+      const s = db.prepare('SELECT answered, correct FROM stats_daily WHERE owner_id = ? AND owner_type = ? AND day = ?')
+        .get(req.auth.ownerId, req.auth.ownerType, day);
+      heatmap.push({ day, answered: s ? s.answered : 0, correct: s ? s.correct : 0 });
+    }
+    res.json({
+      user: {
+        id: user.id, username: user.username, nickname: user.nickname || '',
+        bio: user.bio || '', role: user.role, createdAt: user.created_at
+      },
+      stats: {
+        attempts, correct, wrong, favs, sets,
+        accuracy: attempts > 0 ? Math.round(correct / attempts * 100) : 0,
+        streak,
+        today: todayStats ? todayStats.answered : 0,
+        todayCorrect: todayStats ? todayStats.c : 0
+      },
+      heatmap
+    });
+  });
+
+  // 更新个人资料
+  app.put('/api/user/profile', authRequired, (req, res) => {
+    const user = getUserById(req.auth.ownerId);
+    if (!user) { res.status(404).json({ error: '用户不存在' }); return; }
+    const { nickname, bio } = req.body || {};
+    const n = nickname !== undefined ? String(nickname).trim().slice(0, 30) : (user.nickname || '');
+    const b = bio !== undefined ? String(bio).trim().slice(0, 200) : (user.bio || '');
+    db.prepare('UPDATE users SET nickname=?, bio=? WHERE id=?').run(n, b, user.id);
+    res.json({ ok: true, nickname: n, bio: b });
+  });
+
   // 限流兜底
   app.use('/api/upload', (req, res, next) => {
     try { rateLimitUpload(req.auth, req.headers['content-length'] | 0); next(); }

@@ -102,6 +102,10 @@ const ServerAPI = {
   cloneOfficialSet({ setId, title, category }) { return apiPost('api/admin/official/clone', { setId, title, category }); },
   deleteOfficialSet(id) { return apiDelete('api/admin/official/' + encodeURIComponent(id)); },
 
+  /* ---------- 用户 ---------- */
+  getProfile() { return apiGet('api/user/profile'); },
+  updateProfile(data) { return apiPut('api/user/profile', data); },
+
   /* ---------- 导入 ---------- */
   importData(payload) { return apiPost('api/import', payload); }
 };

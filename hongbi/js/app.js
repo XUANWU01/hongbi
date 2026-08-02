@@ -32,6 +32,7 @@ async function render() {
       case 'audit': await renderAudit(); break;
       case 'parser': await renderParserStats(); break;
       case 'official': await renderOfficial(); break;
+      case 'profile': await renderProfile(); break;
       case 'quiz': await renderQuizView(param, param2); return;
       default: await renderHome(); break;
     }
@@ -145,7 +146,9 @@ document.addEventListener('click', async e => {
   const action = t.dataset.action;
   switch (action) {
     case 'retry': render(); break;
-    case 'open-auth': openAuthModal(); break;
+    case 'open-auth':
+      if (ServerAPI.identity) { location.hash = '#/profile'; break; }
+      openAuthModal(); break;
     case 'open-theme': openThemeModal(); break;
     case 'go-home': location.hash = '#/home'; break;
 
@@ -291,6 +294,31 @@ document.addEventListener('click', async e => {
       if (!ok) break;
       try { await ServerAPI.deleteOfficialSet(t.dataset.id); toast('已删除'); render(); }
       catch (e) { toast('删除失败：' + e.message, 'err'); }
+      break;
+    }
+
+    /* 用户信息 */
+    case 'edit-profile': {
+      try {
+        const data = await ServerAPI.getProfile();
+        const u = data.user;
+        const overlay = openModal(
+          '<div class="modal-head"><h3>编辑个人资料</h3><button class="modal-close" data-close-modal aria-label="关闭">✕</button></div>' +
+          '<div class="modal-body"><div class="form-grid">' +
+            '<div class="field"><label>用户名（不可修改）</label><input value="' + esc(u.username) + '" disabled style="opacity:.6"></div>' +
+            '<div class="field"><label for="ep-nickname">显示昵称</label><input id="ep-nickname" maxlength="30" value="' + esc(u.nickname || '') + '" placeholder="给朋友看的名字"></div>' +
+            '<div class="field"><label for="ep-bio">简介</label><textarea id="ep-bio" maxlength="200" placeholder="介绍一下你自己…">' + esc(u.bio || '') + '</textarea></div>' +
+          '</div></div>' +
+          '<div class="modal-actions"><button class="btn btn-ghost" data-close-modal>取消</button>' +
+            '<button class="btn btn-primary" id="ep-save">保存</button></div>'
+        );
+        $('#ep-save').addEventListener('click', async () => {
+          const nickname = $('#ep-nickname').value.trim();
+          const bio = $('#ep-bio').value.trim();
+          try { await ServerAPI.updateProfile({ nickname, bio }); closeModal(); toast('资料已更新 ✓'); render(); }
+          catch (e) { toast('保存失败：' + e.message, 'err'); }
+        });
+      } catch (e) { toast('获取用户数据失败', 'err'); }
       break;
     }
 

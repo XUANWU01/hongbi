@@ -373,6 +373,69 @@ async function renderParserStats() {
 }
 
 /* ============================================================
+   用户信息板块
+   ============================================================ */
+async function renderProfile() {
+  const view = $('#view');
+  try {
+    view.innerHTML = loadingHtml('正在加载个人数据…');
+    const data = await ServerAPI.getProfile();
+    const u = data.user;
+    const s = data.stats;
+    const h = data.heatmap || [];
+    const roleMap = { superadmin: '超级管理员', admin: '管理员', user: '普通用户' };
+    const roleLabel = roleMap[u.role] || u.role;
+    // 30天热力图
+    const maxH = Math.max(1, ...h.map(d => d.answered));
+    const heatmapHtml = '<div class="heatmap">' + h.map(d => {
+      const level = d.answered === 0 ? 0 : Math.ceil(d.answered / maxH * 4);
+      const acc = d.answered > 0 ? Math.round(d.correct / d.answered * 100) : 0;
+      const title = d.day + ': ' + d.answered + ' 题（正确率 ' + acc + '%）';
+      return '<span class="hm-cell hm-l' + level + '" title="' + esc(title) + '"></span>';
+    }).join('') + '</div>';
+    // 统计卡片
+    const statCards = [
+      { n: s.attempts, label: '答题总数', icon: '📝' },
+      { n: s.accuracy + '%', label: '正确率', icon: '🎯', color: s.accuracy >= 80 ? 'var(--green)' : s.accuracy >= 60 ? 'var(--yellow)' : 'var(--red)' },
+      { n: s.wrong, label: '错题本', icon: '📌' },
+      { n: s.favs, label: '收藏', icon: '⭐' },
+      { n: s.sets, label: '创建题库', icon: '📚' },
+      { n: s.streak + ' 天', label: '连续打卡', icon: '🔥' },
+    ];
+    view.innerHTML = '' +
+      '<div class="section-head" style="margin-top:6px"><div><h2>我的信息</h2></div>' +
+        (ServerAPI.identity && ServerAPI.identity.role === 'superadmin' ?
+          '<div style="display:flex;gap:8px"><a href="#/admin" class="btn btn-ghost btn-sm">管理后台</a></div>' : '') +
+      '</div>' +
+      // 个人信息卡
+      '<div class="profile-card">' +
+        '<div class="pf-avatar">' + esc(u.nickname || u.username).slice(0, 1) + '</div>' +
+        '<div class="pf-info">' +
+          '<div class="pf-name">' + esc(u.nickname || u.username) + '</div>' +
+          '<div class="pf-meta">@' + esc(u.username) + ' · <span class="pf-role chip chip-' + (u.role === 'superadmin' ? 'public' : u.role === 'admin' ? 'pending' : '') + '">' + roleLabel + '</span></div>' +
+          (u.bio ? '<div class="pf-bio">' + esc(u.bio) + '</div>' : '') +
+          '<div class="pf-since">加入于 ' + fmtDate(u.createdAt) + '</div>' +
+        '</div>' +
+        '<button class="btn btn-ghost btn-sm" data-action="edit-profile">编辑资料</button>' +
+      '</div>' +
+      // 今日状态
+      '<div class="today-banner">' +
+        '<div><span class="tb-num">' + s.today + '</span><span class="tb-label">今日答题</span></div>' +
+        '<div><span class="tb-num">' + s.todayCorrect + '</span><span class="tb-label">今日正确</span></div>' +
+        '<div><span class="tb-num">🔥 ' + s.streak + '</span><span class="tb-label">连续打卡</span></div>' +
+      '</div>' +
+      // 30天热力图
+      '<div class="panel-card" style="margin-top:16px"><h3>近30天活跃度</h3>' + heatmapHtml + '</div>' +
+      // 统计
+      '<div class="stats-grid" style="margin-top:16px">' +
+        statCards.map(c => '<div class="stat-card"><div class="stat-icon">' + c.icon + '</div><div class="stat-num"' + (c.color ? ' style="color:' + c.color + '"' : '') + '>' + c.n + '</div><div class="stat-label">' + c.label + '</div></div>').join('') +
+      '</div>';
+  } catch (e) {
+    view.innerHTML = emptyState('✗', '加载失败', e.message || '未能获取用户数据', '<button class="btn btn-primary btn-sm" data-action="retry">重试</button>');
+  }
+}
+
+/* ============================================================
    官方精选题库管理（仅 superadmin）
    ============================================================ */
 async function renderOfficial() {

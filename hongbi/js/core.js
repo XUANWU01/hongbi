@@ -169,6 +169,7 @@ async function api(method, path, body) {
 const apiGet = (p) => api('GET', p);
 const apiPost = (p, b) => api('POST', p, b);
 const apiPatch = (p, b) => api('PATCH', p, b);
+const apiPut = (p, b) => api('PUT', p, b);
 const apiDelete = (p) => api('DELETE', p);
 
 /* ---------- 上传文件（multipart，带进度回调） ---------- */

@@ -38,6 +38,10 @@ function migrateV2() {
   if (!cols.includes('review_reason')) db.exec("ALTER TABLE sets ADD COLUMN review_reason TEXT DEFAULT ''");
   if (!cols.includes('owner_id')) db.exec("ALTER TABLE sets ADD COLUMN owner_id TEXT DEFAULT ''");
   if (!cols.includes('owner_type')) db.exec("ALTER TABLE sets ADD COLUMN owner_type TEXT DEFAULT ''");
+  // 用户表：v4 新增昵称/简介字段
+  const ucols = db.prepare('PRAGMA table_info(users)').all().map(c => c.name);
+  if (!ucols.includes('nickname')) db.exec("ALTER TABLE users ADD COLUMN nickname TEXT DEFAULT ''");
+  if (!ucols.includes('bio')) db.exec("ALTER TABLE users ADD COLUMN bio TEXT DEFAULT ''");
   // 旧数据回填：官方题不动；其余 owner 映射为 device
   db.exec(`UPDATE sets SET owner_id = owner, owner_type = 'device'
            WHERE source != 'official' AND owner_id = '' AND owner != ''`);

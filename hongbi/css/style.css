@@ -1151,3 +1151,26 @@ kbd { font-family: var(--font-mono); font-size: 10.5px; background: rgba(148, 18
 .admin-subnav { display:flex; gap:10px; margin-bottom:14px; flex-wrap:wrap; }
 .admin-subnav a { padding:6px 14px; border:1px solid var(--line); border-radius:20px; font-size:12.5px; color:var(--ink-2); transition:all .14s; }
 .admin-subnav a.active, .admin-subnav a:hover { border-color:var(--cyan); color:var(--cyan-2); background:rgba(34,211,238,.06); }
+
+/* ===== 用户信息板块 ===== */
+.profile-card { display:flex; align-items:center; gap:18px; background:var(--card); border:1px solid var(--line); border-radius:var(--r-lg); padding:22px 24px; margin-top:16px; backdrop-filter:blur(8px); }
+.pf-avatar { width:64px; height:64px; border-radius:50%; background:linear-gradient(135deg,var(--cyan),var(--purple)); display:flex; align-items:center; justify-content:center; font-size:28px;font-weight:900;color:#fff;flex-shrink:0; }
+.pf-info { flex:1; min-width:0; }
+.pf-name { font-size:20px; font-weight:800; }
+.pf-meta { font-size:12.5px; color:var(--ink-3); margin-top:2px; display:flex; align-items:center; gap:8px; }
+.pf-role { font-size:11px !important; }
+.pf-bio { font-size:13px; color:var(--ink-2); margin-top:6px; line-height:1.5; }
+.pf-since { font-size:11.5px; color:var(--ink-3); margin-top:3px; }
+.today-banner { display:flex; gap:24px; padding:16px 24px; margin-top:12px; background:var(--card); border:1px solid var(--line); border-radius:var(--r-md); }
+.today-banner > div { text-align:center; flex:1; }
+.tb-num { display:block; font-size:28px; font-weight:900; font-family:'Orbitron','JetBrains Mono',monospace; color:var(--cyan-2); }
+.tb-label { font-size:12px; color:var(--ink-3); margin-top:2px; }
+/* 热力图 */
+.heatmap { display:flex; gap:3px; flex-wrap:wrap; padding:8px 0; }
+.heatmap .hm-cell { width:14px; height:14px; border-radius:3px; background:var(--line); transition:transform .1s; }
+.heatmap .hm-cell:hover { transform:scale(1.5); }
+.hm-l1 { background:rgba(99,226,255,.2) !important; }
+.hm-l2 { background:rgba(99,226,255,.4) !important; }
+.hm-l3 { background:rgba(99,226,255,.7) !important; }
+.hm-l4 { background:var(--cyan) !important; }
+.stat-icon { font-size:22px; margin-bottom:4px; }
