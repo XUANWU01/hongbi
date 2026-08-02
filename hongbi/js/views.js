@@ -377,7 +377,14 @@ function renderUpload() {
           '<div class="sum"><b>' + p.total + '</b><span>识别题目</span></div>' +
           '<div class="sum"><b>' + (p.skipped || 0) + '</b><span>截断/跳过</span></div>' +
           '<div class="sum"><b>' + esc(p.format) + '</b><span>格式</span></div>' +
-        '</div>' + warnHtml +
+        '</div>' +
+        (uploadState.job.quality ? '<div class="parse-quality">' +
+          '<span class="pq-chip ' + (uploadState.job.quality.answerRate >= 80 ? 'good' : uploadState.job.quality.answerRate >= 50 ? 'mid' : 'bad') + '">' +
+          '答案覆盖率 ' + uploadState.job.quality.answerRate + '%</span>' +
+          '<span class="pq-chip ' + (uploadState.job.quality.confidenceAvg >= 70 ? 'good' : 'mid') + '">' +
+          '置信度 ' + uploadState.job.quality.confidenceAvg + '%</span>' +
+          (uploadState.job.quality.issueSummary ? '<span class="pq-hint">' + esc(uploadState.job.quality.issueSummary) + '</span>' : '') +
+          '</div>' : '') + warnHtml +
         (p.samples || []).map((q, i) => '<div class="sample-q"><span class="sq-num">SAMPLE ' + (i + 1) + '</span>' +
           '<div class="sq-q">' + esc(q.q) + '</div>' +
           (q.options && q.options.length ? '<div class="sq-a" style="color:var(--ink-2)">' + esc(q.options.join(' / ')) + '</div>' : '') +
@@ -398,8 +405,10 @@ function renderUpload() {
           : '<div class="consent-box"><div class="c-head"><span>⚠</span> 共享协议 · 请确认</div>' +
             '<p class="c-body">题库「<b>' + esc(uploadState.title) + '</b>」（共 <b>' + p.total + '</b> 题）' +
             '若<strong>同意共享</strong>将进入<strong>审核队列</strong>，管理员批准后合并进公共主题库供所有人使用。</p>' +
+            '<label class="chk-line"><input type="checkbox" id="chk-copyright" style="margin-right:8px">' +
+            '我已确认拥有该题库版权或已获授权，同意共享规则</label>' +
             '<div class="consent-actions">' +
-              '<button class="btn btn-primary" data-action="confirm-public">同意共享 · 提交审核</button>' +
+              '<button class="btn btn-primary" data-action="confirm-public" id="btn-confirm-public">同意共享 · 提交审核</button>' +
               '<button class="btn btn-ghost" data-action="confirm-private">不同意 · 建立我的私库</button>' +
             '</div>' +
             '<p class="c-note">驳回会附带原因；私库仅你自己可见。</p></div>') +
@@ -457,6 +466,10 @@ async function handleUploadFile(file) {
 
 async function submitUpload(shared) {
   if (!uploadState || !uploadState.job) return;
+  if (shared) {
+    const chk = $('#chk-copyright');
+    if (chk && !chk.checked) { toast('请先勾选版权确认声明 ✍️', 'err'); return; }
+  }
   const title = ($('#f-title') ? $('#f-title').value : '').trim() || uploadState.title;
   const cat = $('#f-cat') ? $('#f-cat').value : '其他';
   const tags = ($('#f-tags') ? $('#f-tags').value : '').split(/[,，]/).map(s => s.trim()).filter(Boolean).slice(0, 5);
@@ -464,7 +477,8 @@ async function submitUpload(shared) {
   try {
     await ServerAPI.createSet({
       jobId: uploadState.job.id, title, category: cat, tags, desc,
-      visibility: shared ? 'public' : 'private'
+      visibility: shared ? 'public' : 'private',
+      copyrightConfirmed: 1
     });
     toast(shared ? '已提交共享审核，等待管理员批准 ⏳' : '已存入你的私库');
     uploadState = null;
