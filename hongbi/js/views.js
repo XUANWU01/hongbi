@@ -755,13 +755,21 @@ function renderQuiz() {
   renderQuizBody();
 }
 
-/* 多选判定：type=multi，或答案能拆成 ≥2 个选项文本（兼容旧数据） */
+/* 多选判定：type=multi，或答案能匹配 ≥2 个选项（兼容旧数据；含选项文本内部带逗号的情况） */
 function isMultiQuestion(q) {
   if (!q || !q.options || q.options.length < 2) return false;
   if (q.type === 'multi') return true;
   if (!q.answer) return false;
+  // 方式1：答案按分隔符拆段，每段恰好等于某选项
   const parts = String(q.answer).split(/[、,，]/).map(normAnswer).filter(Boolean);
-  return parts.length >= 2 && parts.every(p => q.options.some(o => normAnswer(o) === p));
+  if (parts.length >= 2 && parts.every(p => q.options.some(o => normAnswer(o) === p))) return true;
+  // 方式2：选项整段出现在答案中（选项文本内部含逗号/引号时也能识别）
+  const ans = normAnswer(q.answer);
+  const hits = q.options.filter(o => {
+    const no = normAnswer(o);
+    return no.length >= 4 && ans.includes(no);
+  });
+  return hits.length >= 2;
 }
 
 function renderQuizBody() {
