@@ -67,7 +67,8 @@ function jobToJSON(job) {
   return {
     id: job.id, status: job.status, fileName: job.file_name,
     format: job.format, total: job.total, skipped: job.skipped,
-    samples: safeParse(job.samples, []), warnings: safeParse(job.warnings, []),
+    samples: safeParse(job.samples, []),
+    questions: safeParse(job.questions, []), warnings: safeParse(job.warnings, []),
     quality: safeParse(job.quality, null), error: job.error, createdAt: job.created_at
   };
 }

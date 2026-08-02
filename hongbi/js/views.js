@@ -360,16 +360,20 @@ function renderUpload() {
 
   // 解析完成预览
   const p = uploadState.job;
+  const edited = uploadState.editedQuestions || p.questions;
+  const hasEdits = !!uploadState.editedQuestions;
   const warnHtml = p.warnings && p.warnings.length
     ? '<ul class="warn-list">' + p.warnings.slice(0, 5).map(w => '<li>⚠ ' + esc(w) + '</li>').join('') +
       (p.warnings.length > 5 ? '<li>… 另有 ' + (p.warnings.length - 5) + ' 条提示</li>' : '') + '</ul>' : '';
+  const editBtn = '<button class="btn btn-ghost btn-sm" data-action="open-editor" style="margin-left:6px">' + (hasEdits ? '✏️ 已编辑（' + edited.length + ' 题）' : '✏️ 编辑题目') + '</button>';
   const appendBanner = uploadState.appendSetId
     ? '<div class="upload-banner" style="border-color:var(--cyan)"><span class="b-icon">＋</span><div>追加到「' + esc(uploadState.appendTitle) + '」（现有 ' + uploadState.appendCount + ' 题）</div></div>' : '';
 
   view.innerHTML = '' +
     '<div class="section-head" style="margin-top:6px"><div><h2>上传题库</h2>' +
     '<div class="section-sub">已解析：' + esc(uploadState.fileName) + '</div></div>' +
-    '<button class="btn btn-ghost btn-sm" data-action="upload-reset">重新选择</button></div>' +
+    '<div style="display:flex;gap:8px;align-items:center">' + editBtn +
+    '<button class="btn btn-ghost btn-sm" data-action="upload-reset">重新选择</button></div></div>' +
     stepsHtml(3) + appendBanner +
     '<div class="parse-panel">' +
       '<div class="panel-card"><h3><span class="p-num">PARSED</span>解析结果</h3>' +
@@ -464,6 +468,108 @@ async function handleUploadFile(file) {
   }
 }
 
+/* ============================================================
+   人工修正编辑器（预览 → 翻页题目列表 → 逐题编辑/删题/补答案）
+   ============================================================ */
+function openQuestionEditor() {
+  if (!uploadState || !uploadState.job) return;
+  // 初始化编辑副本
+  if (!uploadState.editedQuestions) {
+    uploadState.editedQuestions = JSON.parse(JSON.stringify(uploadState.job.questions || uploadState.job.samples || []));
+    if (!uploadState.editedQuestions.length) { toast('没有可编辑的题目', 'err'); return; }
+  }
+  const qs = uploadState.editedQuestions;
+  const PAGE = 10;
+  let page = 0;
+  const totalPages = Math.ceil(qs.length / PAGE);
+
+  const renderPage = () => {
+    const start = page * PAGE;
+    const slice = qs.slice(start, start + PAGE);
+    return slice.map((q, i) => {
+      const idx = start + i;
+      const isChoice = Array.isArray(q.options) && q.options.length >= 2;
+      return '<div class="edit-q" data-idx="' + idx + '">' +
+        '<div class="edit-q-header">' +
+          '<span class="edit-q-num">' + (idx + 1) + '</span>' +
+          '<span class="chip ' + (q.type === 'multi' ? 'chip-pending' : q.type === 'choice' ? 'chip-public' : 'chip-private') + '">' + (q.type === 'multi' ? '多选' : q.type === 'choice' ? '单选' : '简答') + '</span>' +
+          '<button class="btn btn-sm btn-danger" data-action="editor-del" data-idx="' + idx + '" style="margin-left:auto">删除</button>' +
+        '</div>' +
+        '<div class="field"><label>题干</label><input class="eq-q" data-idx="' + idx + '" value="' + esc(q.q) + '"></div>' +
+        (isChoice
+          ? (() => { let oHtml = '<div class="field"><label>选项</label><div class="eq-opts" data-idx="' + idx + '">';
+            q.options.forEach((o, j) => { oHtml += '<div class="eq-opt-row"><span>' + 'ABCDEFGH'[j] + '.</span>' +
+              '<input value="' + esc(o) + '" data-idx="' + idx + '" data-oj="' + j + '" class="eq-opt">' +
+              '<button class="btn btn-sm btn-ghost eq-opt-del" data-idx="' + idx + '" data-oj="' + j + '">✕</button></div>'; });
+            oHtml += '<button class="btn btn-sm btn-ghost eq-opt-add" data-idx="' + idx + '">＋ 添加选项</button></div></div>'; return oHtml; })()
+          : '') +
+        '<div class="field"><label>答案</label><input class="eq-ans" data-idx="' + idx + '" value="' + esc(q.answer) + '"></div>' +
+        '<div class="field"><label>解析</label><textarea class="eq-exp" data-idx="' + idx + '" rows="2">' + esc(q.explanation) + '</textarea></div>' +
+      '</div>';
+    }).join('');
+  };
+
+  const overlay = openModal(
+    '<div class="modal-head"><h3>编辑全部题目（' + qs.length + ' 题）</h3>' +
+    '<div style="display:flex;gap:8px;align-items:center">' +
+      '<button class="btn btn-sm btn-ghost" id="ed-prev" ' + (page === 0 ? 'disabled' : '') + '>←</button>' +
+      '<span id="ed-pager" style="font-size:13px;color:var(--ink-2)">1 / ' + totalPages + '</span>' +
+      '<button class="btn btn-sm btn-ghost" id="ed-next" ' + (page >= totalPages - 1 ? 'disabled' : '') + '>→</button>' +
+    '</div>' +
+    '<button class="modal-close" data-close-modal aria-label="关闭">✕</button></div>' +
+    '<div class="modal-body" id="ed-body" style="max-height:60vh">' + renderPage() + '</div>' +
+    '<div class="modal-actions"><button class="btn btn-ghost" data-close-modal>取消</button>' +
+    '<button class="btn btn-primary" id="ed-save">保存修改</button></div>'
+  );
+
+  const refresh = () => {
+    $('#ed-body').innerHTML = renderPage();
+    $('#ed-pager').textContent = (page + 1) + ' / ' + totalPages;
+    $('#ed-prev').disabled = page <= 0;
+    $('#ed-next').disabled = page >= totalPages - 1;
+  };
+  $('#ed-prev').addEventListener('click', () => { if (page > 0) { page--; refresh(); } });
+  $('#ed-next').addEventListener('click', () => { if (page < totalPages - 1) { page++; refresh(); } });
+
+  // 保存：从 DOM 回读所有编辑值
+  $('#ed-save').addEventListener('click', () => {
+    for (let i = 0; i < qs.length; i++) {
+      const qEl = $('.edit-q[data-idx="' + i + '"]');
+      if (!qEl) continue;
+      const qInp = $('.eq-q[data-idx="' + i + '"]', qEl);
+      if (qInp) qs[i].q = qInp.value.trim();
+      qs[i].answer = ($('.eq-ans[data-idx="' + i + '"]', qEl) || { value: '' }).value.trim();
+      const expEl = $('.eq-exp[data-idx="' + i + '"]', qEl);
+      if (expEl) qs[i].explanation = expEl.value.trim();
+      // 选项回读
+      const optEls = $$('.eq-opt[data-idx="' + i + '"]', qEl);
+      const newOpts = optEls.map(el => el.value.trim()).filter(Boolean);
+      if (newOpts.length) qs[i].options = newOpts;
+      qs[i].type = qs[i].options && qs[i].options.length >= 2 ? (qs[i].type === 'multi' ? 'multi' : 'choice') : 'text';
+    }
+    closeModal();
+    toast('题目修改已暂存（' + qs.length + ' 题）');
+    render();
+  });
+
+  // 编辑器子操作：删题 / 增删选项（通过事件委托处理 DOM 中已渲染的按钮）
+  overlay.addEventListener('click', e => {
+    const t = e.target;
+    if (t.hasAttribute('data-action')) return; // 委托给全局事件
+    if (t.classList.contains('eq-opt-del')) {
+      const idx = +t.dataset.idx, oj = +t.dataset.oj;
+      qs[idx].options.splice(oj, 1);
+      refresh();
+    }
+    if (t.classList.contains('eq-opt-add')) {
+      const idx = +t.dataset.idx;
+      if (!qs[idx].options) qs[idx].options = [];
+      qs[idx].options.push('');
+      refresh();
+    }
+  });
+}
+
 async function submitUpload(shared) {
   if (!uploadState || !uploadState.job) return;
   if (shared) {
@@ -475,10 +581,12 @@ async function submitUpload(shared) {
   const tags = ($('#f-tags') ? $('#f-tags').value : '').split(/[,，]/).map(s => s.trim()).filter(Boolean).slice(0, 5);
   const desc = $('#f-desc') ? $('#f-desc').value.trim() : '';
   try {
+    const questions = uploadState.editedQuestions || null;
     await ServerAPI.createSet({
       jobId: uploadState.job.id, title, category: cat, tags, desc,
       visibility: shared ? 'public' : 'private',
-      copyrightConfirmed: 1
+      copyrightConfirmed: 1,
+      questions
     });
     toast(shared ? '已提交共享审核，等待管理员批准 ⏳' : '已存入你的私库');
     uploadState = null;

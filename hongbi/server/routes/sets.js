@@ -107,7 +107,10 @@ function registerSetRoutes(app) {
     if (!t) { res.status(400).json({ error: '缺少标题' }); return; }
     if (t.length > 60) { res.status(400).json({ error: '标题过长（最多 60 字）' }); return; }
 
-    const questions = safeParse(job.questions, []);
+    const modifiedQuestions = Array.isArray((req.body || {}).questions) ? (req.body || {}).questions : null;
+    const questions = (modifiedQuestions && modifiedQuestions.length > 0)
+      ? modifiedQuestions.filter(q => q && q.q).map(q => ({ q: q.q, options: q.options || [], answer: q.answer || '', explanation: q.explanation || '', type: q.type || 'text' }))
+      : safeParse(job.questions, []);
     const shared = visibility === 'public';
     const setId = uid('s');
     const now = Date.now();

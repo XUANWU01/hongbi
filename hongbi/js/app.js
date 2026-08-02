@@ -240,6 +240,15 @@ document.addEventListener('click', async e => {
     }
 
     /* 上传 */
+    case 'open-editor': openQuestionEditor(); break;
+    case 'editor-del': {
+      if (!uploadState || !uploadState.editedQuestions) break;
+      const idx = +t.dataset.idx;
+      uploadState.editedQuestions.splice(idx, 1);
+      toast('已删除第 ' + (idx + 1) + ' 题');
+      openQuestionEditor(); // 刷新编辑器
+      break;
+    }
     case 'upload-reset': uploadState = null; render(); break;
     case 'confirm-public': await submitUpload(true); break;
     case 'confirm-private': await submitUpload(false); break;

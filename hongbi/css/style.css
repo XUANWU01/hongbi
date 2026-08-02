@@ -1130,3 +1130,16 @@ kbd { font-family: var(--font-mono); font-size: 10.5px; background: rgba(148, 18
 .pq-hint { font-size:12px; color:var(--ink-3); }
 .chk-line { display:flex; align-items:center; margin:10px 0; font-size:13px; color:var(--ink-2); cursor:pointer; }
 .chk-line input { accent-color:var(--cyan); width:16px; height:16px; }
+
+.edit-q { background: var(--card); border: 1px solid var(--line); border-radius: var(--r-md); padding: 14px 16px; margin-bottom: 12px; }
+.edit-q-header { display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+.edit-q-num { font-family: var(--font-mono); font-size:12px; color: var(--cyan-2); min-width:28px; }
+.edit-q .field { margin-bottom:8px; }
+.edit-q .field label { font-size:11.5px; color: var(--ink-3); margin-bottom:3px; }
+.edit-q input, .edit-q textarea { width:100%; border:1px solid var(--line-hi); border-radius:var(--r-sm); background: rgba(8,13,26,.5); color:var(--ink); padding:7px 10px; font-size:13px; }
+.edit-q textarea { resize:vertical; min-height:40px; }
+.eq-opt-row { display:flex; align-items:center; gap:8px; margin-bottom:4px; }
+.eq-opt-row span { font-family:var(--font-mono); font-size:12px; color:var(--ink-3); min-width:16px; }
+.eq-opt-row input { flex:1; }
+.eq-opt-del { padding:2px 8px; font-size:11px; }
+.eq-opt-add { margin-top:4px; }
