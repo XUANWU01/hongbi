@@ -471,8 +471,8 @@ async function renderUsers() {
   const subNav = '<div class="admin-subnav">' +
     '<a href="#/admin">审核队列</a>' +
     '<a href="#/audit">审计日志</a>' +
-    '<a href="#/official">官方题库</a>' +
     '<a href="#/users" class="active">用户管理</a>' +
+    '<a href="#/official">官方题库</a>' +
     '<a href="#/parser">解析质量</a>' +
     '</div>';
   try {
