@@ -96,6 +96,12 @@ const ServerAPI = {
   approveReview(id) { return apiPost('api/admin/reviews/' + encodeURIComponent(id) + '/approve', {}); },
   rejectReview(id, reason) { return apiPost('api/admin/reviews/' + encodeURIComponent(id) + '/reject', { reason }); },
 
+  /* ---------- 官方精选题库 ---------- */
+  getOfficialSets() { return apiGet('api/admin/official'); },
+  createOfficialSet({ jobId, title, category, desc }) { return apiPost('api/admin/official', { jobId, title, category, desc }); },
+  cloneOfficialSet({ setId, title, category }) { return apiPost('api/admin/official/clone', { setId, title, category }); },
+  deleteOfficialSet(id) { return apiDelete('api/admin/official/' + encodeURIComponent(id)); },
+
   /* ---------- 导入 ---------- */
   importData(payload) { return apiPost('api/import', payload); }
 };

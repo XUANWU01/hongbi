@@ -31,6 +31,7 @@ async function render() {
       case 'admin': await renderAdmin(); break;
       case 'audit': await renderAudit(); break;
       case 'parser': await renderParserStats(); break;
+      case 'official': await renderOfficial(); break;
       case 'quiz': await renderQuizView(param, param2); return;
       default: await renderHome(); break;
     }
@@ -254,6 +255,42 @@ document.addEventListener('click', async e => {
         try { await ServerAPI.rejectReview(t.dataset.id, reason); closeModal(); toast('已驳回并反馈原因'); render(); }
         catch (e) { toast(e.message, 'err'); }
       });
+      break;
+    }
+
+    /* 官方精选题库 */
+    case 'create-official': {
+      const title = $('#of-title')?.value.trim();
+      const cat = $('#of-cat')?.value || '常识/百科';
+      const desc = $('#of-desc')?.value.trim();
+      const jobId = $('#of-source')?.value;
+      if (!title) { toast('请输入题库标题', 'err'); break; }
+      if (!jobId) { toast('请选择解析任务作为素材', 'err'); break; }
+      try { const r = await ServerAPI.createOfficialSet({ jobId, title, category: cat, desc }); toast('已创建官方题库「' + title + '」（' + r.questionCount + '题）'); render(); }
+      catch (e) { toast('创建失败：' + e.message, 'err'); }
+      break;
+    }
+    case 'clone-official': {
+      const setId = t.dataset.id;
+      const title = t.dataset.title;
+      location.hash = '#/official';
+      setTimeout(() => { const el = $('#clone-id'); if (el) { el.value = setId; el.scrollIntoView({ behavior: 'smooth' }); } }, 200);
+      break;
+    }
+    case 'do-clone-official': {
+      const setId = $('#clone-id')?.value.trim();
+      const title = $('#clone-title')?.value.trim() || null;
+      const cat = $('#clone-cat')?.value || '常识/百科';
+      if (!setId) { toast('请输入源题库 ID', 'err'); break; }
+      try { const r = await ServerAPI.cloneOfficialSet({ setId, title, category: cat }); toast('已克隆为官方题库（' + r.questionCount + '题）'); render(); }
+      catch (e) { toast('克隆失败：' + e.message, 'err'); }
+      break;
+    }
+    case 'delete-official': {
+      const ok = await confirmModal({ title: '删除官方题库', body: '<p class="m-line">确定删除官方题库「' + esc(t.dataset.title) + '」？此操作不可恢复。</p>', okText: '删除', danger: true });
+      if (!ok) break;
+      try { await ServerAPI.deleteOfficialSet(t.dataset.id); toast('已删除'); render(); }
+      catch (e) { toast('删除失败：' + e.message, 'err'); }
       break;
     }
 

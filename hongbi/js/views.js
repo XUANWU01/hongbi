@@ -298,6 +298,7 @@ async function renderAdmin() {
   const subNav = '<div class="admin-subnav">' +
     '<a href="#/admin" class="active">审核队列</a>' +
     (ServerAPI.identity && ServerAPI.identity.role === 'superadmin' ? '<a href="#/audit">审计日志</a>' : '') +
+    (ServerAPI.identity && ServerAPI.identity.role === 'superadmin' ? '<a href="#/official">官方题库</a>' : '') +
     '<a href="#/parser">解析质量</a>' +
     '</div>';
   view.innerHTML = '<div class="section-head" style="margin-top:6px"><div><h2>审核队列</h2>' +
@@ -369,6 +370,65 @@ async function renderParserStats() {
       '<div class="ring" style="background:conic-gradient(var(--green) ' + rate + '%, var(--line) 0);margin:16px auto">' +
         '<div class="ring-inner"><div class="ring-num">' + rate + '%</div><div class="ring-label">上传成功率</div></div></div>';
   } catch (e) { view.innerHTML = emptyState('✗', '加载看板失败', e.message, '<button class="btn btn-primary btn-sm" data-action="retry">重试</button>'); }
+}
+
+/* ============================================================
+   官方精选题库管理（仅 superadmin）
+   ============================================================ */
+async function renderOfficial() {
+  const view = $('#view');
+  if (!ServerAPI.isAdmin() || ServerAPI.identity.role !== 'superadmin') {
+    view.innerHTML = emptyState('⚑', '需要超级管理员权限', '仅超级管理员可以管理官方精选题库。', '<button class="btn btn-primary btn-sm" data-action="go-home">返回首页</button>');
+    return;
+  }
+  view.innerHTML = loadingHtml('正在加载官方题库…');
+  const subNav = '<div class="admin-subnav">' +
+    '<a href="#/admin">审核队列</a>' +
+    '<a href="#/audit">审计日志</a>' +
+    '<a href="#/parser">解析质量</a>' +
+    '<a href="#/official" class="active">官方题库</a>' +
+    '</div>';
+  try {
+    const officialSets = await ServerAPI.getOfficialSets();
+    // 加载最近完成的解析任务（供选择素材）
+    let jobs = [];
+    try { jobs = await apiGet('api/admin/jobs?status=done&limit=20'); } catch (e) { /* ignore */ }
+    view.innerHTML = '' +
+      '<div class="section-head" style="margin-top:6px"><div><h2>官方精选题库</h2>' +
+      '<div class="section-sub">创建和维护系统内置官方题库，仅超级管理员可见此页</div></div></div>' +
+      subNav +
+      // 新建官方题库表单
+      '<div class="panel-card" style="margin-top:16px"><h3>➕ 新建官方题库</h3>' +
+      '<div class="form-grid">' +
+        '<div class="field"><label for="of-title">题库标题 *</label><input id="of-title" maxlength="40" placeholder="官方题库名称"></div>' +
+        '<div class="field"><label for="of-cat">分类</label><select id="of-cat">' + CATEGORIES.map(c => '<option>' + c + '</option>').join('') + '</select></div>' +
+        '<div class="field"><label for="of-desc">描述（可选）</label><input id="of-desc" maxlength="120" placeholder="简要说明"></div>' +
+        '<div class="field"><label for="of-source">素材来源</label><select id="of-source" style="width:100%">' +
+          '<option value="">-- 选择解析任务 --</option>' +
+          (Array.isArray(jobs) ? jobs.map(j => '<option value="' + j.id + '">' + esc(j.fileName || j.id) + '（' + (j.total || 0) + '题）</option>').join('') : '') +
+        '</select></div>' +
+        '<div><button class="btn btn-primary" data-action="create-official" style="width:100%">创建官方题库</button></div>' +
+      '</div></div>' +
+      // 已有官方题库列表
+      '<div class="section-head" style="margin-top:24px"><div><h2>已有官方题库（' + officialSets.length + '）</h2></div></div>' +
+      (officialSets.length
+        ? officialSets.map(s => '<div class="list-row">' +
+            '<div class="row-main"><div class="row-title">' + esc(s.title) + '</div>' +
+            '<div class="row-sub">' + s.questionCount + ' 题 · ' + esc(s.category) + ' · ' + relTime(s.createdAt) + '</div></div>' +
+            '<div class="row-actions">' +
+              '<button class="btn btn-sm btn-ghost" data-action="clone-official" data-id="' + s.id + '" data-title="' + escAttr(s.title) + '">复制为官方</button>' +
+              '<button class="btn btn-sm btn-danger" data-action="delete-official" data-id="' + s.id + '" data-title="' + escAttr(s.title) + '">删除</button>' +
+            '</div></div>').join('')
+        : emptyState('📚', '还没有官方题库', '上传文件后在此创建官方精选题库', '')) +
+      // 克隆已有题库（从用户贡献或既有题库）
+      '<div class="panel-card" style="margin-top:16px"><h3>📋 从已有题库克隆</h3>' +
+      '<div class="form-grid">' +
+        '<div class="field"><label for="clone-id">题库 ID（从题库广场或我的题库获取）</label><input id="clone-id" placeholder="如：smxxxxx"></div>' +
+        '<div class="field"><label for="clone-title">官方标题（可选，默认沿用源标题）</label><input id="clone-title" maxlength="40" placeholder="留空=沿用原题名"></div>' +
+        '<div class="field"><label for="clone-cat">分类</label><select id="clone-cat">' + CATEGORIES.map(c => '<option>' + c + '</option>').join('') + '</select></div>' +
+        '<div><button class="btn btn-primary" data-action="do-clone-official" style="width:100%">克隆为官方题库</button></div>' +
+      '</div></div>';
+  } catch (e) { view.innerHTML = emptyState('✗', '加载失败', e.message, '<button class="btn btn-primary btn-sm" data-action="retry">重试</button>'); }
 }
 
 /* ============================================================

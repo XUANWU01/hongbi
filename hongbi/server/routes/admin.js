@@ -5,8 +5,8 @@
 'use strict';
 
 const { db, auditLog } = require('../db.js');
-const { authRequired, requireRole } = require('../auth.js');
-const { qCount } = require('./sets.js');
+const { authRequired, requireRole, uid } = require('../auth.js');
+const { qCount, safeParse } = require('./sets.js');
 
 function registerAdminRoutes(app) {
   // 审核队列（pending 列表，按时间倒序）
@@ -71,6 +71,82 @@ function registerAdminRoutes(app) {
     const failed = db.prepare("SELECT COUNT(*) AS n FROM upload_jobs WHERE status = 'failed'").get().n;
     const avgCoverage = db.prepare("SELECT AVG(CAST(json_extract(quality, '$.answerRate') AS INTEGER)) AS avg FROM upload_jobs WHERE quality != ''").get();
     res.json({ total, success, failed, avgCoverage: Math.round(avgCoverage.avg || 0) });
+  });
+
+  // 列出所有解析任务（供官方题库创建时选择素材）
+  app.get('/api/admin/jobs', authRequired, requireRole('superadmin'), (req, res) => {
+    const limit = Math.min(Number(req.query.limit) || 20, 100);
+    const status = String(req.query.status || 'done');
+    const rows = db.prepare(
+      "SELECT id, file_name, format, total, skipped, status, created_at FROM upload_jobs WHERE status=? ORDER BY created_at DESC LIMIT ?"
+    ).all(status, limit);
+    res.json(rows.map(r => ({
+      id: r.id, fileName: r.file_name, format: r.format, total: r.total, skipped: r.skipped,
+      status: r.status, createdAt: r.created_at
+    })));
+  });
+
+  // ===== 官方精选题库（仅 superadmin） =====
+
+  // 列出所有官方题库
+  app.get('/api/admin/official', authRequired, requireRole('superadmin'), (req, res) => {
+    const rows = db.prepare("SELECT * FROM sets WHERE source='official' ORDER BY created_at DESC").all();
+    res.json(rows.map(r => ({
+      id: r.id, title: r.title, desc: r.desc, category: r.category,
+      source: r.source, questionCount: qCount(r.id), createdAt: r.created_at
+    })));
+  });
+
+  // 从解析任务创建官方题库
+  app.post('/api/admin/official', authRequired, requireRole('superadmin'), (req, res) => {
+    const { jobId, title, category, desc } = req.body || {};
+    if (!jobId) { res.status(400).json({ error: '缺少解析任务 ID' }); return; }
+    if (!title) { res.status(400).json({ error: '缺少题库标题' }); return; }
+    const job = db.prepare('SELECT * FROM upload_jobs WHERE id = ?').get(jobId);
+    if (!job || job.status !== 'done') { res.status(400).json({ error: '解析任务无效或未完成' }); return; }
+    const questions = safeParse(job.questions, []);
+    if (!questions.length) { res.status(400).json({ error: '解析任务无题目' }); return; }
+    const setId = uid('s');
+    const now = Date.now();
+    db.prepare('INSERT INTO sets (id, title, desc, category, tags, source, review_status, copyright_confirmed, version, owner_id, owner_type, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)')
+      .run(setId, String(title).slice(0, 60), String(desc || '').slice(0, 200), String(category || '常识/百科').slice(0, 20),
+        JSON.stringify(['官方']), 'official', 'approved', 1, 1,
+        req.auth.ownerId, req.auth.ownerType, now, now);
+    const insQ = db.prepare('INSERT INTO questions (id, set_id, idx, q, options, answer, explanation, type) VALUES (?,?,?,?,?,?,?,?)');
+    questions.forEach((q, i) => insQ.run(setId + '_q' + i, setId, i, q.q, JSON.stringify(q.options || []), q.answer, q.explanation, q.type || 'text'));
+    db.prepare('DELETE FROM upload_jobs WHERE id = ?').run(jobId);
+    auditLog(req.auth.ownerId, req.auth.ownerType, 'set_official', 'set', setId, { title, questionCount: questions.length });
+    res.json({ ok: true, id: setId, questionCount: questions.length });
+  });
+
+  // 从已有题库复制为官方题库
+  app.post('/api/admin/official/clone', authRequired, requireRole('superadmin'), (req, res) => {
+    const { setId, title, category } = req.body || {};
+    if (!setId) { res.status(400).json({ error: '缺少源题库 ID' }); return; }
+    const src = db.prepare('SELECT * FROM sets WHERE id = ?').get(setId);
+    if (!src) { res.status(404).json({ error: '源题库不存在' }); return; }
+    const qs = db.prepare('SELECT * FROM questions WHERE set_id = ? ORDER BY idx ASC').all(src.id);
+    if (!qs.length) { res.status(400).json({ error: '源题库无题目' }); return; }
+    const newId = uid('s');
+    const now = Date.now();
+    db.prepare('INSERT INTO sets (id, title, desc, category, tags, source, review_status, copyright_confirmed, version, owner_id, owner_type, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)')
+      .run(newId, String(title || src.title).slice(0, 60), String(src.desc || '').slice(0, 200), String(category || src.category).slice(0, 20),
+        JSON.stringify(['官方']), 'official', 'approved', 1, 1,
+        req.auth.ownerId, req.auth.ownerType, now, now);
+    const insQ = db.prepare('INSERT INTO questions (id, set_id, idx, q, options, answer, explanation, type) VALUES (?,?,?,?,?,?,?,?)');
+    qs.forEach((q, i) => insQ.run(newId + '_q' + i, newId, i, q.q, q.options, q.answer, q.explanation, q.type));
+    auditLog(req.auth.ownerId, req.auth.ownerType, 'set_official_clone', 'set', newId, { from: src.id, title: newId, questionCount: qs.length });
+    res.json({ ok: true, id: newId, questionCount: qs.length });
+  });
+
+  // 删除官方题库
+  app.delete('/api/admin/official/:id', authRequired, requireRole('superadmin'), (req, res) => {
+    const r = db.prepare("SELECT * FROM sets WHERE id = ? AND source='official'").get(req.params.id);
+    if (!r) { res.status(404).json({ error: '官方题库不存在' }); return; }
+    db.prepare('DELETE FROM questions WHERE set_id = ?').run(r.id);
+    db.prepare('DELETE FROM sets WHERE id = ?').run(r.id);
+    auditLog(req.auth.ownerId, req.auth.ownerType, 'set_official_delete', 'set', r.id, { title: r.title });
+    res.json({ ok: true });
   });
 }
 

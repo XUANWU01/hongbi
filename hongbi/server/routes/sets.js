@@ -269,4 +269,4 @@ function buildDocx(set, qs) {
   return zip.generateAsync({ type: 'nodebuffer' });
 }
 
-module.exports = { registerSetRoutes, setToJSON, qCount, isOwner };
+module.exports = { registerSetRoutes, setToJSON, qCount, isOwner, safeParse };
