@@ -672,7 +672,9 @@ function renderQuizBody() {
           ? '<div class="q-options">' + qq.options.map((o, i) =>
               '<button class="q-option" data-action="pick" data-oi="' + i + '" data-qid="' + esc(qq.id) + '">' +
               '<span class="opt-letter">' + 'ABCDEFGH'[i] + '</span><span>' + esc(o) + '</span></button>').join('') + '</div>'
-          : '<button class="btn btn-primary" data-action="reveal">显示答案 <kbd>空格</kbd></button>') +
+          : '<div class="q-input"><textarea id="q-input-box" rows="3" placeholder="在这里写下你的答案…（提交后对照参考答案）"></textarea>' +
+            '<div class="q-input-actions"><button class="btn btn-primary" data-action="submit-text">提交答案</button>' +
+            '<button class="btn btn-ghost btn-sm" data-action="reveal">直接看答案</button></div></div>') +
         '<div id="q-answer-zone"></div>' +
         '<div class="q-actions" id="q-actions"></div>' +
       '</div>';
@@ -688,6 +690,28 @@ function renderQuizBody() {
       renderQ(qq, qq.options && qq.options.length >= 2);
     }).catch(e => toast(e.message, 'err'));
   }
+}
+
+function submitText() {
+  const s = session;
+  const q = s._curQ;
+  const box = $('#q-input-box');
+  if (!q) return;
+  const userAnswer = box ? box.value.trim() : '';
+  if (!userAnswer) { toast('先写下你的答案吧 ✍️', 'err'); box && box.focus(); return; }
+  s._userAnswer = userAnswer;
+  const zone = $('#q-answer-zone');
+  const actions = $('#q-actions');
+  if (!zone || !actions) return;
+  zone.innerHTML = '<div class="q-answer">' +
+    '<div class="ans-label">YOUR ANSWER</div>' +
+    '<div class="ans-user">' + esc(userAnswer) + '</div>' +
+    '<div class="ans-label" style="margin-top:14px">REFERENCE ANSWER</div>' +
+    '<div class="ans-text">' + esc(q.answer || '（本题未提供参考答案）') + '</div>' +
+    (q.explanation ? '<div class="ans-exp">' + esc(q.explanation) + '</div>' : '') +
+    '</div>';
+  actions.innerHTML = '<button class="btn btn-ink" data-action="mark" data-v="1">答对了 ✓</button>' +
+    '<button class="btn btn-danger" data-action="mark" data-v="0">答错了 ✗</button>';
 }
 
 function showAnswerPanel() {
@@ -735,7 +759,7 @@ function markKnown(v) {
   const isCorrect = v === 1;
   if (isCorrect) { s.correct++; if (s.mode === 'wrong') ServerAPI.learnedWrong(q.id).catch(() => {}); }
   else s.wrongIdx.push(q.id);
-  ServerAPI.answer(s.setId, q.id, isCorrect).catch(() => {});
+  ServerAPI.answer(s.setId, q.id, isCorrect, s._userAnswer || '').catch(() => {});
   refreshWrongBadge();
   const zone = $('#q-answer-zone');
   const actions = $('#q-actions');

@@ -100,6 +100,7 @@ db.exec(`
     set_id TEXT NOT NULL,
     question_id TEXT NOT NULL,
     correct INTEGER DEFAULT 0,
+    answer_text TEXT DEFAULT '',
     created_at INTEGER NOT NULL
   );
 

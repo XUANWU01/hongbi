@@ -1000,3 +1000,33 @@ kbd { font-family: var(--font-mono); font-size: 10.5px; background: rgba(148, 18
 .theme-btn { padding: 6px 10px; font-size: 13px; }
 @media (max-width: 620px) { .theme-grid { grid-template-columns: 1fr; } }
 
+
+/* 简答/填空作答输入 */
+.q-input { margin-bottom: 16px; }
+.q-input textarea {
+  width: 100%;
+  min-height: 84px;
+  border: 1px solid var(--line-hi);
+  border-radius: var(--r-md);
+  background: rgba(148, 183, 255, .05);
+  color: var(--ink);
+  padding: 12px 14px;
+  font-size: 14.5px;
+  font-family: var(--font-body);
+  resize: vertical;
+  transition: border-color .15s, box-shadow .15s;
+}
+.q-input textarea:focus { outline: none; border-color: var(--cyan); box-shadow: 0 0 12px rgba(34, 211, 238, .18); }
+.q-input-actions { display: flex; gap: 10px; margin-top: 10px; align-items: center; flex-wrap: wrap; }
+.ans-user {
+  font-size: 14.5px;
+  color: var(--ink);
+  background: rgba(34, 211, 238, .07);
+  border-left: 3px solid var(--cyan);
+  border-radius: var(--r-sm);
+  padding: 10px 13px;
+  margin: 6px 0 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+:root[data-theme="paper"] .ans-user { background: rgba(214, 59, 43, .06); border-left-color: var(--red); }

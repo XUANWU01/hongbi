@@ -23,6 +23,9 @@ const HOST = process.env.HOST || '0.0.0.0';
 function migrateV2() {
   const cols = db.prepare('PRAGMA table_info(sets)').all().map(c => c.name);
   if (!cols.includes('review_status')) db.exec("ALTER TABLE sets ADD COLUMN review_status TEXT DEFAULT 'none'");
+  // 答题流水补充 answer_text 列（记录简答/填空的用户作答）
+  const acols = db.prepare('PRAGMA table_info(attempt_logs)').all().map(c => c.name);
+  if (!acols.includes('answer_text')) db.exec("ALTER TABLE attempt_logs ADD COLUMN answer_text TEXT DEFAULT ''");
   if (!cols.includes('review_reason')) db.exec("ALTER TABLE sets ADD COLUMN review_reason TEXT DEFAULT ''");
   if (!cols.includes('owner_id')) db.exec("ALTER TABLE sets ADD COLUMN owner_id TEXT DEFAULT ''");
   if (!cols.includes('owner_type')) db.exec("ALTER TABLE sets ADD COLUMN owner_type TEXT DEFAULT ''");

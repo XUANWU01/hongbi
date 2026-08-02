@@ -19,7 +19,7 @@ function checkQuestion(setId, questionId) {
 function registerQuizRoutes(app) {
   // 提交答题记录（选择题判对由前端提交，服务器存流水 + 更新进度/错题/统计）
   app.post('/api/quiz/answer', authRequired, (req, res) => {
-    const { setId, questionId, correct } = req.body || {};
+    const { setId, questionId, correct, userAnswer } = req.body || {};
     if (!setId || !questionId) { res.status(400).json({ error: '参数缺失' }); return; }
     const q = checkQuestion(setId, questionId);
     if (!q) { res.status(404).json({ error: '题目不存在' }); return; }
@@ -27,9 +27,9 @@ function registerQuizRoutes(app) {
     const isCorrect = correct ? 1 : 0;
     const now = Date.now();
 
-    // 答题流水（热度统计）
-    db.prepare('INSERT INTO attempt_logs (owner_id, owner_type, set_id, question_id, correct, created_at) VALUES (?,?,?,?,?,?)')
-      .run(auth.ownerId, auth.ownerType, setId, questionId, isCorrect, now);
+    // 答题流水（热度统计，记录简答/填空的用户作答）
+    db.prepare('INSERT INTO attempt_logs (owner_id, owner_type, set_id, question_id, correct, answer_text, created_at) VALUES (?,?,?,?,?,?,?)')
+      .run(auth.ownerId, auth.ownerType, setId, questionId, isCorrect, String(userAnswer || '').slice(0, 4000), now);
 
     // 稀疏进度（只记录答过的题）
     const p = db.prepare('SELECT * FROM progress WHERE owner_id=? AND owner_type=? AND question_id=?')

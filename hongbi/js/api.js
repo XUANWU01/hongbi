@@ -77,8 +77,8 @@ const ServerAPI = {
   pollJob(jobId, opts) { return pollJob(jobId, opts); },
 
   /* ---------- 刷题 ---------- */
-  answer(setId, questionId, correct) {
-    return apiPost('api/quiz/answer', { setId, questionId, correct: correct ? 1 : 0 });
+  answer(setId, questionId, correct, userAnswer) {
+    return apiPost('api/quiz/answer', { setId, questionId, correct: correct ? 1 : 0, userAnswer: userAnswer || '' });
   },
   getWrong() { return apiGet('api/wrong'); },
   learnedWrong(questionId) { return apiDelete('api/wrong/' + encodeURIComponent(questionId)); },

@@ -243,6 +243,7 @@ document.addEventListener('click', async e => {
 
     /* 刷题 */
     case 'pick': if (session) revealChoice(+t.dataset.oi); break;
+    case 'submit-text': submitText(); break;
     case 'reveal': showAnswerPanel(); break;
     case 'mark': markKnown(+t.dataset.v); break;
     case 'next': nextQuestion(); break;
