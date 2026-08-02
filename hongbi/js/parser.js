@@ -7,7 +7,7 @@
 
 const PARSER = (() => {
 
-  const MAX_QUESTIONS = 800;
+  const MAX_QUESTIONS = 3000;
 
   function clean(t) {
     return String(t == null ? '' : t)
@@ -47,6 +47,14 @@ const PARSER = (() => {
     return { q, opts };
   }
 
+  /* 行内答案提取：题干行内带「。答案是：C」时拆出（判断题支持 正确/错误；分号分隔如 答案是; ABC 也支持） */
+  function extractInlineAnswer(t) {
+    const str = String(t == null ? '' : t);
+    const m = str.match(/(.+?)(?:答案(?:是|为)?\s*[:：;；]\s*)([A-Fa-f][A-Fa-f,，、\s]{0,14}|正确|错误|对|错)$/);
+    if (!m) return null;
+    return { q: clean(m[1]), answer: clean(m[2]) };
+  }
+
   /* 通用归一化：字母答案 -> 选项文本、推断题型；选项缺失时尝试从题干中拆分 */
   function normalize(q) {
     let options = Array.isArray(q.options) ? q.options.map(clean).filter(Boolean) : [];
@@ -55,19 +63,23 @@ const PARSER = (() => {
       const inline = extractInlineOptions(qText);
       if (inline) { qText = inline.q; options = inline.opts; }
     }
-    const out = {
-      q: qText,
-      options,
-      answer: clean(q.answer),
-      explanation: clean(q.explanation),
-      type: 'text'
-    };
-    if (out.options.length >= 2) {
-      out.type = 'choice';
-      const idx = letterToIndex(out.answer);
-      if (idx >= 0 && idx < out.options.length) out.answer = out.options[idx];
+    let answer = clean(q.answer);
+    let type = 'text';
+    if (options.length >= 2) {
+      type = 'choice';
+      const idx = letterToIndex(answer);
+      if (idx >= 0 && idx < options.length) answer = options[idx];
+      else if (/^[A-Fa-f][A-Fa-f,，、\s]+$/.test(answer)) {
+        // 多选答案（BCD / B,C,D）：转为选项文本，简答式展示完整答案
+        const letters = answer.match(/[A-Fa-f]/g) || [];
+        const texts = letters.map(l => options[l.toUpperCase().charCodeAt(0) - 65]).filter(Boolean);
+        if (texts.length === letters.length && texts.length > 0) {
+          answer = texts.join('、');
+          type = 'text';
+        }
+      }
     }
-    return out;
+    return { q: qText, options, answer, explanation: clean(q.explanation), type };
   }
 
   function letterToIndex(s) {
@@ -223,17 +235,22 @@ const PARSER = (() => {
       cur = null;
     };
     const pushQ = (t) => { flush(); cur = { q: t, options: [], answer: '', explanation: '', _optExpect: 65 }; };
-    // 新题目行：优先尝试从行内拆出选项（题目 A.甲 B.乙 C.丙 D.丁）
+    // 新题目行：优先拆行内答案（「。答案是：C」），再尝试行内选项（题目 A.甲 B.乙）
     const pushLineQ = (t) => {
-      const inline = extractInlineOptions(t);
-      if (inline) { flush(); cur = { q: inline.q, options: inline.opts, answer: '', explanation: '', _optExpect: 65 }; }
-      else pushQ(t);
+      let qText = t, answer = '';
+      const ia = extractInlineAnswer(t);
+      if (ia) { qText = ia.q; answer = ia.answer; }
+      const inline = extractInlineOptions(qText);
+      if (inline) { flush(); cur = { q: inline.q, options: inline.opts, answer, explanation: '', _optExpect: 65 }; }
+      else pushQ(qText);
+      if (answer) cur.answer = answer;
     };
 
     const RE_NUM   = /^\d{1,4}[.、)）]\s*(.+)/;
     const RE_QMARK = /^(q|问|题目|题干)\s*[:：]\s*(.+)/i;
-    const RE_AMARK = /^(?:(?:正确|参考|标准)?答案|answer|ans)\s*[:：]\s*(.+)/i;
+    const RE_AMARK = /^(?:(?:正确|参考|标准)?答案|answer|ans)(?:是|为)?\s*[:：;；]\s*(.+)/i;
     const RE_AMARK2 = /^【(?:正确|参考|标准)?答案】\s*(.+)/;
+    const RE_SECTION = /^(?:单选|多选|判断|简答|填空|论述)题\s*[\d，,、 ]*道?题?$/;
     const RE_EMARK = /^(解析|解释|说明|explanation|note)\s*[:：]\s*(.+)/i;
     const RE_OPT   = /^([A-Fa-f])\s*[.、)）．]\s*(.+)/;
 
@@ -241,6 +258,7 @@ const PARSER = (() => {
       if (!raw) { continue; }
       let m;
 
+      if ((m = raw.match(RE_SECTION))) { continue; } // 分节标题（单选题/多选题/判断题…）直接跳过
       if ((m = raw.match(RE_AMARK)) || (m = raw.match(RE_AMARK2))) {
         if (!cur) pushQ('');
         cur.answer = (cur.answer ? cur.answer + ' ' : '') + m[1];
@@ -265,6 +283,11 @@ const PARSER = (() => {
           else if (!cur.answer) cur.options[cur.options.length - 1] += ' ' + clean(raw);
           else cur.explanation = (cur.explanation ? cur.explanation + ' ' : '') + clean(raw);
         }
+        continue;
+      }
+      // 判断题选项行（正确/错误/对/错）：收集为选项，避免污染题干或解析
+      if ((raw === '正确' || raw === '错误' || raw === '对' || raw === '错') && cur) {
+        if (!cur.options.includes(raw)) cur.options.push(raw);
         continue;
       }
       // 普通文本

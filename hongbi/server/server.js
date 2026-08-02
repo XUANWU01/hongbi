@@ -20,7 +20,7 @@ const PORT = Number(process.env.PORT || 8712);
 const HOST = process.env.HOST || '0.0.0.0';
 const ADMIN_KEY = process.env.HONGBI_ADMIN_KEY || '';
 const MAX_BODY = 5 * 1024 * 1024;
-const MAX_QUESTIONS_PER_SET = 800;
+const MAX_QUESTIONS_PER_SET = 3000;
 
 fs.mkdirSync(DATA_DIR, { recursive: true });
 const db = new DatabaseSync(DB_PATH);
