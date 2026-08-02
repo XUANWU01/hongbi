@@ -345,7 +345,14 @@ async function renderAudit() {
       : emptyState('📋', '暂无审计记录', '执行操作后会在这里出现审计日志。', '');
     view.innerHTML = '<div class="section-head" style="margin-top:6px"><div><h2>操作审计日志</h2>' +
       '<div class="section-sub">记录所有关键操作：上传、审核、删除、编辑、回滚等</div></div>' +
-      '<span class="chip chip-official">共 ' + data.total + ' 条</span></div>' + tableHtml;
+      '<span class="chip chip-official">共 ' + data.total + ' 条</span></div>' +
+      '<div class="admin-subnav">' +
+        '<a href="#/admin">审核队列</a>' +
+        '<a href="#/audit" class="active">审计日志</a>' +
+        '<a href="#/users">用户管理</a>' +
+        '<a href="#/official">官方题库</a>' +
+        '<a href="#/parser">解析质量</a>' +
+      '</div>' + tableHtml;
   } catch (e) { view.innerHTML = emptyState('✗', '加载审计日志失败', e.message, '<button class="btn btn-primary btn-sm" data-action="retry">重试</button>'); }
 }
 
@@ -361,6 +368,13 @@ async function renderParserStats() {
     const rate = stats.total > 0 ? Math.round(stats.success / stats.total * 100) : 0;
     view.innerHTML = '<div class="section-head" style="margin-top:6px"><div><h2>解析质量看板</h2>' +
       '<div class="section-sub">上传解析任务总览：成功率、平均覆盖率、失败分布</div></div></div>' +
+      '<div class="admin-subnav">' +
+        '<a href="#/admin">审核队列</a>' +
+        (ServerAPI.identity && ServerAPI.identity.role === 'superadmin' ? '<a href="#/audit">审计日志</a>' : '') +
+        (ServerAPI.identity && ServerAPI.identity.role === 'superadmin' ? '<a href="#/users">用户管理</a>' : '') +
+        (ServerAPI.identity && ServerAPI.identity.role === 'superadmin' ? '<a href="#/official">官方题库</a>' : '') +
+        '<a href="#/parser" class="active">解析质量</a>' +
+      '</div>' +
       '<div class="stats-grid" style="margin-top:12px">' +
         '<div class="stat-card"><div class="stat-label">总任务数</div><div class="stat-num">' + stats.total + '</div></div>' +
         '<div class="stat-card"><div class="stat-label">成功</div><div class="stat-num" style="color:var(--green);text-shadow:0 0 12px var(--green)">' + stats.success + '</div></div>' +
