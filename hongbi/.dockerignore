@@ -1,0 +1,6 @@
+node_modules/
+server/data/
+backups/
+.cowork-temp/
+*.log
+.DS_Store

@@ -1,10 +1,13 @@
 {
   "name": "hongbi",
-  "version": "3.0.0",
-  "description": "红笔 HONGBI · 服务器化刷题平台（题库共享 + 个人进度）",
+  "version": "4.0.0",
+  "description": "红笔 HONGBI · 企业级服务器化刷题平台",
   "main": "server/server.js",
   "scripts": {
-    "start": "node server/server.js"
+    "start": "node server/server.js",
+    "backup": "node scripts/backup.js",
+    "restore": "node scripts/recover.js",
+    "test": "node .cowork-temp/test-parser3.js && node .cowork-temp/test-parser4.js && node --check js/core.js && node --check js/api.js && node --check js/views.js && node --check js/app.js"
   },
   "engines": {
     "node": ">=22.5"
