@@ -146,6 +146,8 @@ document.addEventListener('click', async e => {
   if (t.hasAttribute('data-edit-ok')) return;
 
   const action = t.dataset.action;
+  // 所有非 toggle-share 的操作都关闭下拉菜单
+  if (action !== 'toggle-share') $$('.dropdown-menu').forEach(m => m.hidden = true);
   switch (action) {
     case 'retry': render(); break;
     case 'open-auth': openAuthModal(); break;
