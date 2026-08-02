@@ -194,6 +194,13 @@ document.addEventListener('click', async e => {
       catch (e) { toast('删除失败：' + e.message, 'err'); }
       break;
     }
+    case 'share-set': {
+      const ok = await confirmModal({ title: '共享到题库广场', body: '<p class="m-line">将该私库提交到公共审核队列？</p><p style="font-size:12px;color:var(--ink-3)">管理员批准后，题库将出现在「题库广场」供所有人使用。</p>', okText: '提交审核' });
+      if (!ok) break;
+      try { await ServerAPI.shareSet(t.dataset.id); toast('已提交审核，管理员批准后出现 ✓'); render(); }
+      catch (e) { toast('提交失败：' + e.message, 'err'); }
+      break;
+    }
 
     /* 错题 / 收藏 */
     case 'wrong-quiz': location.hash = '#/quiz/' + t.dataset.id + '/wrong'; break;

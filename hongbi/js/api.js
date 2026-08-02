@@ -70,6 +70,7 @@ const ServerAPI = {
   createSet(payload) { return apiPost('api/sets', payload); },
   patchSet(id, fields) { return apiPatch('api/sets/' + encodeURIComponent(id), fields); },
   deleteSet(id) { return apiDelete('api/sets/' + encodeURIComponent(id)); },
+  shareSet(id) { return apiPost('api/sets/' + encodeURIComponent(id) + '/share', {}); },
   appendQuestions(id, jobId) { return apiPost('api/sets/' + encodeURIComponent(id) + '/questions', { jobId }); },
 
   /* ---------- 上传解析 ---------- */
