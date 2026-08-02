@@ -57,6 +57,29 @@ function normAnswer(s) {
   return String(s == null ? '' : s).replace(/^\s*[A-Fa-f][.、)）．]\s*/, '').replace(/\s+/g, ' ').trim().toLowerCase();
 }
 
+/* 简答模糊判分：把参考答案拆成要点，检查用户作答命中几个（提示性质，不替代自评） */
+function matchScore(userAnswer, referenceAnswer) {
+  const norm = s => String(s == null ? '' : s)
+    .replace(/[\s，。；、,.!?！？:：()（）“”"'『』「」【】\-—]/g, '')
+    .toLowerCase();
+  const ua = norm(userAnswer);
+  const ra = norm(referenceAnswer);
+  if (!ua || !ra) return null;
+  if (ua === ra) return { hit: 1, total: 1, pct: 100, hint: '完全一致' };
+  // 按分隔符拆要点
+  const parts = String(referenceAnswer).split(/[，,、；;。\n]+/).map(s => norm(s)).filter(s => s.length >= 2);
+  if (parts.length <= 1) {
+    // 单要点：子串包含或字符重叠率
+    const hit = ua.includes(ra) || ra.includes(ua);
+    return { hit: hit ? 1 : 0, total: 1, pct: hit ? 90 : 20, hint: hit ? '基本一致' : '与参考答案差异较大' };
+  }
+  let hit = 0;
+  parts.forEach(p => { if (ua.includes(p) || p.includes(ua)) hit++; });
+  const pct = Math.round(hit / parts.length * 100);
+  const hint = pct >= 80 ? '要点基本齐全，很棒' : pct >= 50 ? '命中部分要点，还差一些' : hit === 0 ? '没有命中要点，差异较大' : '只命中少数要点';
+  return { hit, total: parts.length, pct, hint };
+}
+
 function trunc(s, n) { s = String(s == null ? '' : s); return s.length > n ? s.slice(0, n) + '…' : s; }
 
 /* ---------- Toast ---------- */

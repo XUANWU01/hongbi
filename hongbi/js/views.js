@@ -241,6 +241,7 @@ async function renderWrong() {
       const urgent = w.count >= 3;
       return '<div class="list-row">' +
         '<div class="row-main"><div class="row-title" style="font-size:14px">' + esc(trunc(w.q, 60)) + '</div>' +
+        (w.userAnswer ? '<div class="row-sub ans-echo">你的作答：' + esc(trunc(w.userAnswer, 60)) + '</div>' : '') +
         '<div class="row-sub">答错 <b>' + w.count + '</b> 次 · 最近 ' + relTime(w.lastAt) + '</div></div>' +
         (urgent ? '<span class="stamp">加急</span>' : '') +
         '<div class="row-actions">' +
@@ -703,7 +704,15 @@ function submitText() {
   const zone = $('#q-answer-zone');
   const actions = $('#q-actions');
   if (!zone || !actions) return;
-  zone.innerHTML = '<div class="q-answer">' +
+  const ms = matchScore(userAnswer, q.answer);
+  const matchHtml = ms
+    ? '<div class="match-box ' + (ms.pct >= 80 ? 'good' : ms.pct >= 50 ? 'mid' : 'bad') + '">' +
+      '<div class="match-head"><span>自动判分提示</span><b>' + (ms.total > 1 ? '命中 ' + ms.hit + ' / ' + ms.total + ' 个要点' : '') + ' · ' + ms.pct + '%</b></div>' +
+      '<div class="match-bar"><i style="width:' + ms.pct + '%"></i></div>' +
+      '<div class="match-hint">' + esc(ms.hint) + '</div></div>'
+    : '';
+  zone.innerHTML = matchHtml +
+    '<div class="q-answer">' +
     '<div class="ans-label">YOUR ANSWER</div>' +
     '<div class="ans-user">' + esc(userAnswer) + '</div>' +
     '<div class="ans-label" style="margin-top:14px">REFERENCE ANSWER</div>' +

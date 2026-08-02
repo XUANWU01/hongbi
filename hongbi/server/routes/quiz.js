@@ -64,7 +64,10 @@ function registerQuizRoutes(app) {
   /* ---------- 错题本 ---------- */
   app.get('/api/wrong', authRequired, (req, res) => {
     const rows = db.prepare(
-      `SELECT w.question_id, w.count, w.last_at, q.set_id, q.q, q.type, q.options, q.answer, q.explanation, s.title AS set_title
+      `SELECT w.question_id, w.count, w.last_at, q.set_id, q.q, q.type, q.options, q.answer, q.explanation, s.title AS set_title,
+              (SELECT a.answer_text FROM attempt_logs a
+                WHERE a.question_id = w.question_id AND a.owner_id = w.owner_id AND a.owner_type = w.owner_type
+                ORDER BY a.id DESC LIMIT 1) AS user_answer
        FROM wrong_items w
        JOIN questions q ON q.id = w.question_id
        JOIN sets s ON s.id = q.set_id
@@ -75,7 +78,8 @@ function registerQuizRoutes(app) {
       questionId: r.question_id, count: r.count, lastAt: r.last_at,
       setId: r.set_id, setTitle: r.set_title, q: r.q, type: r.type,
       options: (() => { try { return JSON.parse(r.options); } catch (e) { return []; } })(),
-      answer: r.answer, explanation: r.explanation
+      answer: r.answer, explanation: r.explanation,
+      userAnswer: r.user_answer || ''
     })) });
   });
 

@@ -258,12 +258,21 @@ document.addEventListener('click', async e => {
       } catch (e) { toast(e.message, 'err'); }
       break;
     }
-    case 'replay': location.hash = '#/quiz/' + t.dataset.id; break;
+    case 'replay': {
+      session = null;
+      const rt = '#/quiz/' + t.dataset.id;
+      if (location.hash === rt) render(); else location.hash = rt;
+      break;
+    }
     case 'rewrong': location.hash = '#/quiz/' + t.dataset.id + '/wrong'; break;
     case 'quiz-quit': {
       const s = session;
       const ok = await confirmModal({ title: '退出本轮刷题', body: '<p class="m-line">已作答 ' + s.answered + ' 题，进度已同步服务器。</p>', okText: '退出', danger: true });
-      if (ok) { session = null; location.hash = '#/quiz/' + s.setId; }
+      if (ok) {
+        session = null;
+        const qt = '#/quiz/' + s.setId;
+        if (location.hash === qt) render(); else location.hash = qt;
+      }
       break;
     }
   }
