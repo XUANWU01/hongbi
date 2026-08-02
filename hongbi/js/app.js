@@ -321,6 +321,24 @@ document.addEventListener('click', async e => {
       } catch (e) { toast('获取用户数据失败', 'err'); }
       break;
     }
+    case 'logout-account': {
+      try { await ServerAPI.logout(); } catch (e) { /* ignore */ }
+      localStorage.removeItem('hb_token');
+      ServerAPI.identity = null;
+      toast('已退出登录');
+      location.hash = '#/home';
+      refreshIdentityUI();
+      break;
+    }
+    case 'switch-account': {
+      try { await ServerAPI.logout(); } catch (e) { /* ignore */ }
+      localStorage.removeItem('hb_token');
+      ServerAPI.identity = null;
+      refreshIdentityUI();
+      location.hash = '#/home';
+      setTimeout(() => openAuthModal(), 300);
+      break;
+    }
 
     /* 上传 */
     case 'open-editor': openQuestionEditor(); break;

@@ -105,6 +105,7 @@ const ServerAPI = {
   /* ---------- 用户 ---------- */
   getProfile() { return apiGet('api/user/profile'); },
   updateProfile(data) { return apiPut('api/user/profile', data); },
+  logout() { return apiPost('api/auth/logout', {}); },
 
   /* ---------- 导入 ---------- */
   importData(payload) { return apiPost('api/import', payload); }

@@ -233,6 +233,12 @@ function registerAuthRoutes(app) {
     res.json({ ok: true, nickname: n, bio: b });
   });
 
+  // 退出登录
+  app.post('/api/auth/logout', authRequired, (req, res) => {
+    db.prepare('DELETE FROM sessions WHERE token = ?').run(req.auth.token);
+    res.json({ ok: true });
+  });
+
   // 限流兜底
   app.use('/api/upload', (req, res, next) => {
     try { rateLimitUpload(req.auth, req.headers['content-length'] | 0); next(); }

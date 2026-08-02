@@ -183,6 +183,8 @@ button { font-family: inherit; }
 .btn-primary:hover { box-shadow: 0 6px 26px -4px rgba(139, 92, 246, .55); border-color: transparent; }
 .btn-danger { background: rgba(244, 63, 94, .12); border-color: rgba(244, 63, 94, .45); color: var(--red-2); }
 .btn-danger:hover { border-color: var(--red); box-shadow: 0 0 16px rgba(244, 63, 94, .3); }
+.btn-danger-outline { background: transparent; border: 1px solid rgba(244, 63, 94, .3); color: var(--red-2); padding: 4px 10px; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all .14s; }
+.btn-danger-outline:hover { border-color: var(--red); background: rgba(244, 63, 94, .06); }
 .btn-ink { background: var(--card-hi); border-color: var(--line-hi); }
 .btn-ghost { background: transparent; border-color: var(--line); color: var(--ink-2); }
 .btn-ghost:hover { color: var(--ink); border-color: var(--line-hi); background: rgba(148, 183, 255, .06); box-shadow: none; }

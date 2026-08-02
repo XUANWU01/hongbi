@@ -415,6 +415,10 @@ async function renderProfile() {
           '<div class="pf-meta">@' + esc(u.username) + ' · <span class="pf-role chip chip-' + (u.role === 'superadmin' ? 'public' : u.role === 'admin' ? 'pending' : '') + '">' + roleLabel + '</span></div>' +
           (u.bio ? '<div class="pf-bio">' + esc(u.bio) + '</div>' : '') +
           '<div class="pf-since">加入于 ' + fmtDate(u.createdAt) + '</div>' +
+        '<div style="margin-top:10px;display:flex;gap:8px">' +
+          '<button class="btn btn-ghost btn-sm" data-action="switch-account">🔄 切换账号</button>' +
+          '<button class="btn btn-danger-outline btn-sm" data-action="logout-account">退出登录</button>' +
+        '</div>' +
         '</div>' +
         '<button class="btn btn-ghost btn-sm" data-action="edit-profile">编辑资料</button>' +
       '</div>' +
