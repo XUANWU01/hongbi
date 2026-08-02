@@ -7,6 +7,7 @@
 
 const { db } = require('../db.js');
 const { authRequired, requireRole, uid } = require('../auth.js');
+const JSZip = require('jszip');
 
 function safeParse(s, fb) { try { return JSON.parse(s); } catch (e) { return fb; } }
 
@@ -161,8 +162,7 @@ function registerSetRoutes(app) {
   });
 
   // 追加题目（复用上传解析任务）
-  app.post('/api/sets/:id/questions', authRequired, (req, res) => {
-    const r = db.prepare('SELECT * FROM sets WHERE id = ?').get(req.params.id);
+  app.post('/api/sets/:id/questions', authRequired, (req, res) => {    const r = db.prepare('SELECT * FROM sets WHERE id = ?').get(req.params.id);
     if (!r) { res.status(404).json({ error: '题库不存在' }); return; }
     if (r.source === 'official') { res.status(403).json({ error: '官方题库不可追加' }); return; }
     if (!isOwner(r, req.auth) && !['admin', 'superadmin'].includes(req.auth.role)) {
@@ -184,6 +184,60 @@ function registerSetRoutes(app) {
     db.prepare('DELETE FROM upload_jobs WHERE id = ?').run(jobId);
     res.json({ ok: true, added: newQs.length, total: n + newQs.length });
   });
+
+  // 导出 Word 文档（.docx，纯文本排版）
+  app.post('/api/export/docx', authRequired, async (req, res) => {
+    const { setId } = (req.body || {});
+    const r = db.prepare('SELECT * FROM sets WHERE id = ?').get(String(setId || ''));
+    if (!r) { res.status(404).json({ error: '题库不存在' }); return; }
+    const visible = r.source === 'official' || r.source === 'public' || isOwner(r, req.auth)
+      || ['admin', 'superadmin'].includes(req.auth.role);
+    if (!visible) { res.status(403).json({ error: '无权导出该题库' }); return; }
+    const qs = db.prepare('SELECT * FROM questions WHERE set_id = ? ORDER BY idx ASC').all(r.id)
+      .map(x => ({ q: x.q, options: safeParse(x.options, []), answer: x.answer, explanation: x.explanation }));
+    try {
+      const buf = await buildDocx(r, qs);
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+      res.setHeader('Content-Disposition', "attachment; filename*=UTF-8''" + encodeURIComponent(r.title) + '.docx');
+      res.send(buf);
+    } catch (e) {
+      res.status(500).json({ error: '生成文档失败：' + e.message });
+    }
+  });
+}
+
+function buildDocx(set, qs) {
+  const escXml = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const paras = [];
+  const P = (t, bold) => paras.push('<w:p>' + (bold ? '<w:pPr><w:spacing w:before="160"/></w:pPr>' : '') +
+    '<w:r>' + (bold ? '<w:rPr><w:b/><w:sz w:val="32"/></w:rPr>' : '') + '<w:t>' + escXml(t) + '</w:t></w:r></w:p>');
+  P(set.title, true);
+  if (set.desc) P(set.desc);
+  P('共 ' + qs.length + ' 题');
+  P('');
+  qs.forEach((q, i) => {
+    P((i + 1) + '. ' + q.q);
+    if (q.options && q.options.length) q.options.forEach((o, j) => P('    ' + 'ABCDEFGH'[j] + '. ' + o));
+    P('答案：' + (q.answer || '无'));
+    if (q.explanation) P('解析：' + q.explanation);
+    P('');
+  });
+  const docXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>' +
+    paras.join('') + '</w:body></w:document>';
+  const zip = new JSZip();
+  zip.file('[Content_Types].xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
+    '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
+    '<Default Extension="xml" ContentType="application/xml"/>' +
+    '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>' +
+    '</Types>');
+  zip.file('_rels/.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+    '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>' +
+    '</Relationships>');
+  zip.file('word/document.xml', docXml);
+  return zip.generateAsync({ type: 'nodebuffer' });
 }
 
 module.exports = { registerSetRoutes, setToJSON, qCount, isOwner };

@@ -214,6 +214,8 @@ function setRow(s) {
       '<button class="btn btn-sm btn-ghost" data-action="preview" data-id="' + s.id + '">预览</button>' +
       '<button class="btn btn-sm btn-ghost" data-action="export" data-id="' + s.id + '">JSON</button>' +
       '<button class="btn btn-sm btn-ghost" data-action="export-csv" data-id="' + s.id + '">CSV</button>' +
+      '<button class="btn btn-sm btn-ghost" data-action="export-docx" data-id="' + s.id + '">Word</button>' +
+      '<button class="btn btn-sm btn-ghost" data-action="export-pdf" data-id="' + s.id + '">PDF</button>' +
       (s.isMine && s.source !== 'official' ? '<button class="btn btn-sm btn-ghost" data-action="edit-set" data-id="' + s.id + '">编辑</button>' : '') +
       (s.isMine && s.source !== 'official' ? '<button class="btn btn-sm btn-danger" data-action="delete-set" data-id="' + s.id + '">删除</button>' : '') +
     '</div></div>';
@@ -616,6 +618,66 @@ async function exportSet(setId, asCsv) {
     setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(a.href); }, 2000);
     toast('已导出 ' + name + '（' + qs.length + ' 题）');
   } catch (e) { toast('导出失败：' + e.message, 'err'); }
+}
+
+/* 导出 Word 文档（服务器生成 .docx） */
+async function exportDocx(setId) {
+  try {
+    const token = localStorage.getItem('hb_token');
+    const res = await fetch('api/export/docx', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+      body: JSON.stringify({ setId })
+    });
+    if (!res.ok) {
+      let d = null;
+      try { d = await res.json(); } catch (e) { /* ignore */ }
+      throw new Error((d && d.error) || '导出失败(' + res.status + ')');
+    }
+    const meta = await ServerAPI.getSet(setId, { limit: 1 });
+    const blob = await res.blob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = meta.title + '.docx';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(a.href); }, 2000);
+    toast('已导出 Word 文档：' + meta.title + '.docx');
+  } catch (e) { toast(e.message, 'err'); }
+}
+
+/* 导出 PDF（打印视图，可另存为 PDF 或打印） */
+async function exportPdf(setId) {
+  try {
+    const meta = await ServerAPI.getSet(setId, { limit: 1 });
+    const qs = await fetchAllQuestions(setId, meta.questionCount);
+    const w = window.open('', '_blank');
+    if (!w) { toast('浏览器拦截了打印窗口，请允许弹窗后重试', 'err'); return; }
+    const items = qs.map((q, i) =>
+      '<div class="pq"><div class="pq-q">' + (i + 1) + '. ' + esc(q.q) + '</div>' +
+      (q.options && q.options.length ? '<div class="pq-opts">' + q.options.map((o, j) => 'ABCDEFGH'[j] + '. ' + esc(o)).join('<br>') + '</div>' : '') +
+      '<div class="pq-ans">答案：' + esc(q.answer || '无') + (q.explanation ? '　解析：' + esc(q.explanation) : '') + '</div></div>'
+    ).join('');
+    const html = '<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><title>' + esc(meta.title) + '</title>' +
+      '<style>' +
+      'body{font-family:"Noto Serif SC","SimSun",serif;color:#222;margin:28px;line-height:1.8}' +
+      'h1{font-size:20px;text-align:center;margin-bottom:4px}' +
+      '.meta{text-align:center;color:#666;font-size:13px;margin-bottom:24px}' +
+      '.pq{margin-bottom:14px;page-break-inside:avoid}' +
+      '.pq-q{font-weight:600}' +
+      '.pq-opts{margin:4px 0 0 18px;color:#333}' +
+      '.pq-ans{margin-top:4px;color:#a5281f}' +
+      '@media print{body{margin:14mm}}' +
+      '</style></head><body>' +
+      '<h1>' + esc(meta.title) + '</h1>' +
+      '<div class="meta">共 ' + qs.length + ' 题' + (meta.desc ? ' · ' + esc(meta.desc) : '') + '</div>' +
+      items +
+      '<script>window.onload=function(){setTimeout(function(){window.print()},350)};<\/script>' +
+      '</body></html>';
+    w.document.write(html);
+    w.document.close();
+    toast('已打开打印预览，可选择「另存为 PDF」或直接打印');
+  } catch (e) { toast('导出 PDF 失败：' + e.message, 'err'); }
 }
 
 /* ============================================================

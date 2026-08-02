@@ -176,6 +176,8 @@ document.addEventListener('click', async e => {
     /* 我的题库 */
     case 'export': await exportSet(t.dataset.id, false); break;
     case 'export-csv': await exportSet(t.dataset.id, true); break;
+    case 'export-docx': await exportDocx(t.dataset.id); break;
+    case 'export-pdf': await exportPdf(t.dataset.id); break;
     case 'edit-set': editModal(t.dataset.id); break;
     case 'append-set': {
       uploadState = { appendSetId: t.dataset.id, appendTitle: t.dataset.title || '', appendCount: Number(t.dataset.count || 0) };
