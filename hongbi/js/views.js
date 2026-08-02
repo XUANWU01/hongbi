@@ -212,10 +212,14 @@ function setRow(s) {
     '<div class="row-actions">' +
       '<button class="btn btn-sm btn-primary" data-action="start-quiz" data-id="' + s.id + '">刷题</button>' +
       '<button class="btn btn-sm btn-ghost" data-action="preview" data-id="' + s.id + '">预览</button>' +
-      '<button class="btn btn-sm btn-ghost" data-action="export" data-id="' + s.id + '">JSON</button>' +
-      '<button class="btn btn-sm btn-ghost" data-action="export-csv" data-id="' + s.id + '">CSV</button>' +
-      '<button class="btn btn-sm btn-ghost" data-action="export-docx" data-id="' + s.id + '">Word</button>' +
-      '<button class="btn btn-sm btn-ghost" data-action="export-pdf" data-id="' + s.id + '">PDF</button>' +
+      '<div class="dropdown" style="display:inline-block">' +
+        '<button class="btn btn-sm btn-ghost" data-action="toggle-share" data-id="' + s.id + '">📤 分享/导出 ▾</button>' +
+        '<div class="dropdown-menu" data-dropdown="share-' + s.id + '" hidden>' +
+          '<button class="dd-item" data-action="export" data-id="' + s.id + '">📥 导出 JSON</button>' +
+          '<button class="dd-item" data-action="export-csv" data-id="' + s.id + '">📥 导出 CSV</button>' +
+          '<button class="dd-item" data-action="export-docx" data-id="' + s.id + '">📥 导出 Word</button>' +
+          '<button class="dd-item" data-action="export-pdf" data-id="' + s.id + '">📥 导出 PDF</button>' +
+        '</div></div>' +
       (s.isMine && s.source !== 'official' ? '<button class="btn btn-sm btn-ghost" data-action="edit-set" data-id="' + s.id + '">编辑</button>' : '') +
       (s.isMine && s.source !== 'official' ? '<button class="btn btn-sm btn-danger" data-action="delete-set" data-id="' + s.id + '">删除</button>' : '') +
     '</div></div>';

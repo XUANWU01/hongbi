@@ -134,6 +134,10 @@ function openAuthModal() {
    全局事件
    ============================================================ */
 document.addEventListener('click', async e => {
+  // 点击外部时关闭所有下拉菜单
+  if (!e.target.closest('.dropdown')) {
+    $$('.dropdown-menu').forEach(m => m.hidden = true);
+  }
   const t = e.target.closest('[data-action],[data-close-modal],[data-start],[data-cat],[data-edit-ok]');
   if (!t) return;
   if (t.hasAttribute('data-close-modal')) { closeModal(); return; }
@@ -180,6 +184,12 @@ document.addEventListener('click', async e => {
     case 'export-csv': await exportSet(t.dataset.id, true); break;
     case 'export-docx': await exportDocx(t.dataset.id); break;
     case 'export-pdf': await exportPdf(t.dataset.id); break;
+    case 'toggle-share': {
+      const menu = document.querySelector('[data-dropdown="share-' + t.dataset.id + '"]');
+      if (!menu) break;
+      $$('.dropdown-menu:not([hidden])').forEach(m => { if (m !== menu) m.hidden = true; });
+      menu.hidden = !menu.hidden;
+    } break;
     case 'edit-set': editModal(t.dataset.id); break;
     case 'append-set': {
       uploadState = { appendSetId: t.dataset.id, appendTitle: t.dataset.title || '', appendCount: Number(t.dataset.count || 0) };
