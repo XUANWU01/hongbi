@@ -194,7 +194,7 @@ function showSwitchAccountModal() {
       closeModal();
       refreshIdentityUI();
       toast('欢迎回来，' + username + ' ✒️');
-      render();
+      location.hash = '#/home';
     } catch (e) { $('#sw-msg').textContent = e.message; }
   });
 }
@@ -399,10 +399,14 @@ document.addEventListener('click', async e => {
     }
     case 'device-switch': {
       closeModal();
+      try { await ServerAPI.logout(); } catch (e) { /* ignore */ }
+      localStorage.removeItem('hb_token');
+      ServerAPI.identity = null;
       try { await ServerAPI.init(); } catch (e) { /* ignore */ }
       refreshIdentityUI();
-      if (ServerAPI.identity) toast('已切换为设备模式');
-      render();
+      if (ServerAPI.identity) toast('已切换为设备（访客）模式');
+      else toast('设备模式启动失败，请刷新页面', 'err');
+      location.hash = '#/home';
       break;
     }
     case 'switch-account': {
@@ -410,9 +414,7 @@ document.addEventListener('click', async e => {
       localStorage.removeItem('hb_token');
       ServerAPI.identity = null;
       refreshIdentityUI();
-      location.hash = '#/home';
-      // 显示近期用户选择弹窗
-      setTimeout(() => showSwitchAccountModal(), 300);
+      showSwitchAccountModal();
       break;
     }
 
