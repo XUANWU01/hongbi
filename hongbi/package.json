@@ -5,9 +5,9 @@
   "main": "server/server.js",
   "scripts": {
     "start": "node server/server.js",
+    "test": "node tests/regression.js",
     "backup": "node scripts/backup.js",
-    "restore": "node scripts/recover.js",
-    "test": "node .cowork-temp/test-parser3.js && node .cowork-temp/test-parser4.js && node --check js/core.js && node --check js/api.js && node --check js/views.js && node --check js/app.js"
+    "restore": "node scripts/recover.js"
   },
   "engines": {
     "node": ">=22.5"
