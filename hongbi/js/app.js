@@ -44,6 +44,7 @@ async function render() {
   }
   window.scrollTo(0, 0);
   refreshWrongBadge();
+  refreshNotifBadge();
 }
 
 /* ---------- 身份 UI ---------- */
@@ -53,6 +54,17 @@ async function refreshWrongBadge() {
   try {
     const data = await ServerAPI.getWrong();
     const n = data.total || 0;
+    badge.hidden = n === 0;
+    badge.textContent = n > 99 ? '99+' : n;
+  } catch (e) { /* 静默 */ }
+}
+
+async function refreshNotifBadge() {
+  const badge = $('#notif-badge');
+  if (!badge || !badge.parentElement || badge.parentElement.hidden) return;
+  try {
+    const data = await ServerAPI.getNotifications();
+    const n = data.unread || 0;
     badge.hidden = n === 0;
     badge.textContent = n > 99 ? '99+' : n;
   } catch (e) { /* 静默 */ }
@@ -91,6 +103,10 @@ function refreshIdentityUI() {
     }
     if (conn) { conn.classList.add('on'); conn.title = '已连接服务器'; }
     if (adminNav) { adminNav.hidden = !ServerAPI.isAdmin(); }
+    // 显示通知铃铛（仅登录用户）
+    const notifBtn = $('#notif-btn');
+    if (notifBtn) notifBtn.hidden = !(ServerAPI.identity && ServerAPI.identity.type === 'user');
+    refreshNotifBadge();
   } else {
     btn.textContent = '登录';
     btn.classList.remove('is-user');
@@ -210,7 +226,11 @@ function showSwitchAccountModal() {
    ============================================================ */
 document.addEventListener('click', async e => {
   const t = e.target.closest('[data-action],[data-close-modal],[data-start],[data-cat],[data-edit-ok]');
-  if (!t) return;
+  if (!t) {
+    // 点击外部关闭通知下拉
+    const nd = $('#notif-dropdown'); if (nd && !nd.hidden) nd.hidden = true;
+    return;
+  }
   if (t.hasAttribute('data-close-modal')) { closeModal(); return; }
   if (t.hasAttribute('data-start')) { closeModal(); location.hash = '#/quiz/' + t.dataset.start; return; }
   if (t.hasAttribute('data-cat')) { libraryState.cat = t.dataset.cat; libraryState.page = 1; render(); return; }
@@ -223,6 +243,40 @@ document.addEventListener('click', async e => {
       if (ServerAPI.identity && ServerAPI.identity.type === 'user') { location.hash = '#/profile'; break; }
       openAuthModal(); break;
     case 'open-theme': openThemeModal(); break;
+    case 'toggle-notifications': {
+      const dd = $('#notif-dropdown');
+      if (!dd || !ServerAPI.identity || ServerAPI.identity.type !== 'user') break;
+      if (!dd.hidden) { dd.hidden = true; break; }
+      dd.innerHTML = loadingHtml('加载通知…');
+      dd.hidden = false;
+      try {
+        const data = await ServerAPI.getNotifications();
+        const items = data.items || [];
+        dd.innerHTML = items.length
+          ? '<div class="notif-list">' +
+              items.map(n => '<div class="notif-item' + (n.isRead ? '' : ' unread') + '" data-action="read-notif" data-id="' + n.id + '">' +
+                '<div class="notif-title">' + esc(n.title) + '</div>' +
+                '<div class="notif-body">' + esc(n.body) + '</div>' +
+                '<div class="notif-time">' + relTime(n.createdAt) + '</div></div>').join('') +
+              '<div class="notif-footer"><button class="btn btn-ghost btn-sm" data-action="mark-all-read">全部已读</button></div>' +
+            '</div>'
+          : '<div class="notif-empty">暂无通知</div>';
+      } catch (e) { dd.innerHTML = '<div class="notif-empty">加载失败</div>'; }
+    } break;
+    case 'read-notif': {
+      await ServerAPI.markRead(t.dataset.id);
+      const dd = $('#notif-dropdown');
+      if (dd) dd.hidden = true;
+      refreshNotifBadge();
+      // 如果是官方升级通知，可跳转题库广场
+      const item = document.querySelector('[data-id="' + t.dataset.id + '"]');
+      if (item && item.querySelector('.notif-title')?.textContent?.includes('官方')) location.hash = '#/library';
+    } break;
+    case 'mark-all-read': {
+      await ServerAPI.markAllRead();
+      $('#notif-dropdown').hidden = true;
+      refreshNotifBadge();
+    } break;
     case 'go-home': location.hash = '#/home'; break;
 
     /* 首页快捷 */
@@ -364,6 +418,13 @@ document.addEventListener('click', async e => {
       if (!setId) { toast('请输入源题库 ID', 'err'); break; }
       try { const r = await ServerAPI.cloneOfficialSet({ setId, title, category: cat }); toast('已克隆为官方题库（' + r.questionCount + '题）'); render(); }
       catch (e) { toast('克隆失败：' + e.message, 'err'); }
+      break;
+    }
+    case 'upgrade-official': {
+      const ok = await confirmModal({ title: '升级为官方题库', body: '<p class="m-line">将「' + esc(t.dataset.title) + '」直接升级为官方题库？</p><p style="font-size:12px;color:var(--ink-3)">不克隆、无重复存储。社区题库直接改为官方，原作者会收到通知。</p>', okText: '确认升级' });
+      if (!ok) break;
+      try { await ServerAPI.upgradeOfficialSet(t.dataset.id); toast('已升级为官方题库 ✓'); render(); }
+      catch (e) { toast('升级失败：' + e.message, 'err'); }
       break;
     }
     case 'delete-official': {

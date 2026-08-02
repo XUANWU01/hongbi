@@ -4,7 +4,7 @@
    ============================================================ */
 'use strict';
 
-const { db, auditLog } = require('../db.js');
+const { db, auditLog, createNotification } = require('../db.js');
 const { authRequired, requireRole, uid } = require('../auth.js');
 const { qCount, safeParse } = require('./sets.js');
 
@@ -121,6 +121,25 @@ function registerAdminRoutes(app) {
     auditLog(req.auth.ownerId, req.auth.ownerType, 'user_role_change', 'user', user.id,
       { username: user.username, from: user.role, to: role });
     res.json({ ok: true, role });
+  });
+
+  // 将社区题库直接升级为官方（不克隆，无重复存储）
+  app.post('/api/admin/official/upgrade', authRequired, requireRole('superadmin'), (req, res) => {
+    const { setId } = req.body || {};
+    if (!setId) { res.status(400).json({ error: '缺少题库 ID' }); return; }
+    const r = db.prepare('SELECT * FROM sets WHERE id = ?').get(String(setId));
+    if (!r) { res.status(404).json({ error: '题库不存在' }); return; }
+    if (r.source === 'official') { res.status(400).json({ error: '已是官方题库' }); return; }
+    if (r.source !== 'public' && r.source !== 'pending') { res.status(400).json({ error: '仅可升级已公开或待审核的题库' }); return; }
+    db.prepare("UPDATE sets SET source='official', review_status='approved', updated_at=? WHERE id=?").run(Date.now(), r.id);
+    auditLog(req.auth.ownerId, req.auth.ownerType, 'set_official_upgrade', 'set', r.id, { title: r.title });
+    // 非本人题库 → 通知原作者
+    if (r.owner_id && r.owner_type === 'user' && r.owner_id !== req.auth.ownerId) {
+      createNotification(r.owner_id, 'official_upgrade',
+        '你的题库被收录为官方精选',
+        '「' + r.title + '」已被超级管理员升级为官方精选题库，所有人可在题库广场查看。', r.id);
+    }
+    res.json({ ok: true, message: '已升级为官方题库' });
   });
 
   // ===== 官方精选题库（仅 superadmin） =====

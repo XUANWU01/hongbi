@@ -239,6 +239,33 @@ function registerAuthRoutes(app) {
     res.json({ ok: true });
   });
 
+  // ===== 通知 =====
+
+  app.get('/api/notifications', authRequired, (req, res) => {
+    const rows = db.prepare(
+      'SELECT * FROM notifications WHERE recipient_id = ? ORDER BY created_at DESC LIMIT 50'
+    ).all(req.auth.ownerId);
+    const unread = db.prepare(
+      'SELECT COUNT(*) AS n FROM notifications WHERE recipient_id = ? AND is_read = 0'
+    ).get(req.auth.ownerId).n;
+    res.json({ items: rows.map(r => ({
+      id: r.id, type: r.type, title: r.title, body: r.body, relatedId: r.related_id,
+      isRead: !!r.is_read, createdAt: r.created_at
+    })), unread });
+  });
+
+  app.patch('/api/notifications/:id/read', authRequired, (req, res) => {
+    db.prepare('UPDATE notifications SET is_read=1 WHERE id=? AND recipient_id=?')
+      .run(req.params.id, req.auth.ownerId);
+    res.json({ ok: true });
+  });
+
+  app.patch('/api/notifications/read-all', authRequired, (req, res) => {
+    db.prepare('UPDATE notifications SET is_read=1 WHERE recipient_id=? AND is_read=0')
+      .run(req.auth.ownerId);
+    res.json({ ok: true });
+  });
+
   // 限流兜底
   app.use('/api/upload', (req, res, next) => {
     try { rateLimitUpload(req.auth, req.headers['content-length'] | 0); next(); }

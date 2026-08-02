@@ -123,4 +123,11 @@ function computeFingerprint(q) {
   return crypto.createHash('sha256').update(src).digest('hex').slice(0, 16);
 }
 
-module.exports = { db, auditLog, computeFingerprint };
+/* ---------- 通知 ---------- */
+function createNotification(recipientId, type, title, body, relatedId) {
+  const id = 'n' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  db.prepare('INSERT INTO notifications (id, recipient_id, type, title, body, related_id, created_at) VALUES (?,?,?,?,?,?,?)')
+    .run(id, recipientId, type, title, body, relatedId || '', Date.now());
+}
+
+module.exports = { db, auditLog, computeFingerprint, createNotification };

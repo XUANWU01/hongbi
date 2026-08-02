@@ -101,6 +101,7 @@ const ServerAPI = {
   createOfficialSet({ jobId, title, category, desc }) { return apiPost('api/admin/official', { jobId, title, category, desc }); },
   cloneOfficialSet({ setId, title, category }) { return apiPost('api/admin/official/clone', { setId, title, category }); },
   deleteOfficialSet(id) { return apiDelete('api/admin/official/' + encodeURIComponent(id)); },
+  upgradeOfficialSet(setId) { return apiPost('api/admin/official/upgrade', { setId }); },
 
   /* ---------- 用户管理 ---------- */
   getUsers() { return apiGet('api/admin/users'); },
@@ -110,6 +111,11 @@ const ServerAPI = {
   getProfile() { return apiGet('api/user/profile'); },
   updateProfile(data) { return apiPut('api/user/profile', data); },
   logout() { return apiPost('api/auth/logout', {}); },
+
+  /* ---------- 通知 ---------- */
+  getNotifications() { return apiGet('api/notifications'); },
+  markRead(notifId) { return apiPatch('api/notifications/' + encodeURIComponent(notifId) + '/read', {}); },
+  markAllRead() { return apiPatch('api/notifications/read-all', {}); },
 
   /* ---------- 导入 ---------- */
   importData(payload) { return apiPost('api/import', payload); }

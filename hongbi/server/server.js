@@ -42,6 +42,17 @@ function migrateV2() {
   const ucols = db.prepare('PRAGMA table_info(users)').all().map(c => c.name);
   if (!ucols.includes('nickname')) db.exec("ALTER TABLE users ADD COLUMN nickname TEXT DEFAULT ''");
   if (!ucols.includes('bio')) db.exec("ALTER TABLE users ADD COLUMN bio TEXT DEFAULT ''");
+  // 通知表
+  db.exec(`CREATE TABLE IF NOT EXISTS notifications (
+    id TEXT PRIMARY KEY,
+    recipient_id TEXT NOT NULL,
+    type TEXT NOT NULL DEFAULT '',
+    title TEXT NOT NULL DEFAULT '',
+    body TEXT NOT NULL DEFAULT '',
+    related_id TEXT DEFAULT '',
+    is_read INTEGER NOT NULL DEFAULT 0,
+    created_at INTEGER NOT NULL
+  )`);
   // 旧数据回填：官方题不动；其余 owner 映射为 device
   db.exec(`UPDATE sets SET owner_id = owner, owner_type = 'device'
            WHERE source != 'official' AND owner_id = '' AND owner != ''`);

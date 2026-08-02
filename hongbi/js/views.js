@@ -314,6 +314,7 @@ async function renderAdmin() {
           (s.desc ? ' · ' + esc(trunc(s.desc, 40)) : '') + '</div></div>' +
           '<div class="row-actions">' +
             '<button class="btn btn-sm btn-ghost" data-action="review-preview" data-id="' + s.id + '">预览</button>' +
+            (ServerAPI.identity && ServerAPI.identity.role === 'superadmin' ? '<button class="btn btn-sm btn-ghost" data-action="upgrade-official" data-id="' + s.id + '" data-title="' + escAttr(s.title) + '" style="color:var(--green)">升官方</button>' : '') +
             '<button class="btn btn-sm btn-primary" data-action="review-approve" data-id="' + s.id + '">批准</button>' +
             '<button class="btn btn-sm btn-danger" data-action="review-reject" data-id="' + s.id + '">驳回</button>' +
           '</div></div>').join('')
