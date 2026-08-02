@@ -56,6 +56,23 @@ const PARSER = (() => {
     return { q: clean(m[1]), answer: clean(m[2]) };
   }
 
+  /* 括号答案提取：公考资料常见格式「1、题干（A）…」，答案字母括号在题干任意位置
+     安全：括号内容必须为纯字母/分隔符（A、ABC、B,C,D），含汉字的括号（如「（多选）」「（A 类）」不误判 */
+  function extractBracketAnswer(t) {
+    const str = String(t == null ? '' : t).trim();
+    const re = /[（(]([^）)]*)[)）]/g;
+    let m;
+    while ((m = re.exec(str)) !== null) {
+      const inner = m[1].trim();
+      if (/^[A-Fa-f][A-Fa-f,，、\s]{0,10}$/.test(inner)) {
+        const answer = clean(inner);
+        const q = clean(str.slice(0, m.index) + ' ' + str.slice(m.index + m[0].length)).replace(/\s+/g, ' ').trim();
+        if (q.length >= 2) return { q, answer };
+      }
+    }
+    return null;
+  }
+
   /* 答案行拆分：把【答案】B。解析：xxx / 答案：B 解析：xxx 拆成 答案字母 + 解析 */
   function splitAnswerLine(s) {
     const str = String(s == null ? '' : s).trim();
@@ -250,6 +267,10 @@ const PARSER = (() => {
       let qText = t, answer = '';
       const ia = extractInlineAnswer(t);
       if (ia) { qText = ia.q; answer = ia.answer; }
+      else {
+        const tb = extractBracketAnswer(t);
+        if (tb) { qText = tb.q; answer = tb.answer; }
+      }
       const inline = extractInlineOptions(qText);
       if (inline) { flush(); cur = { q: inline.q, options: inline.opts, answer, explanation: '', _optExpect: 65 }; }
       else pushQ(qText);
@@ -260,8 +281,8 @@ const PARSER = (() => {
     const RE_QMARK = /^(q|问|题目|题干)\s*[:：]\s*(.+)/i;
     const RE_AMARK = /^(?:(?:正确|参考|标准)?答案|answer|ans)(?:是|为)?\s*[:：;；]\s*(.+)/i;
     const RE_AMARK2 = /^【(?:正确|参考|标准)?答案】\s*(.+)/;
-    const RE_SECTION = /^(?:单选|多选|判断|简答|填空|论述)题\s*[\d，,、 ]*道?题?$/;
-    const RE_NOISE = /^(学员专用|请勿外泄|微信公众|公众号|全国辅警|第[一二三四五六]部分|(?:一|二|三|四|五|六)、|考情分析|真题展示|材料\s*[:：]?$|[-——]?\s*\d+\s*[-—]?$|第\s*\d+\s*页)/;
+    const RE_SECTION = /^(?:[一二三四五六七八九十]?[、]?)(?:单选|多选|判断|简答|填空|论述|选择)题\s*[\d，,、 ]*道?题?$/;
+    const RE_NOISE = /^(学员专用|请勿外泄|微信公众|公众号|全国辅警|第[一二三四五六]部分|(?:一|二|三|四|五|六)、|考情分析|真题展示|辅警考试|材料\s*[:：]?$|[-——]?\s*\d+\s*[-—]?$|第\s*\d+\s*页)/;
     const RE_EMARK = /^(解析|解释|说明|explanation|note)\s*[:：]\s*(.+)/i;
     const RE_OPT   = /^([A-Fa-f])\s*[.、)）．]\s*(.+)/;
 

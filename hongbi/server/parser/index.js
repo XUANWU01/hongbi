@@ -16,9 +16,9 @@ async function extractDocx(buf) {
   return xml
     .replace(/<w:tab[^>]*\/>/g, '\t')
     .replace(/<w:br[^>]*\/>/g, '\n')
-    .replace(/<w:tr[^>]*>/g, '\n')
-    .replace(/<w:tc[^>]*>/g, ' | ')
-    .replace(/<w:p[^>]*>/g, '\n')
+    .replace(/<\/w:p>/g, '\n')          // 段落结束标签 → 换行（正确方式：不拆开始标签/属性标签）
+    .replace(/<w:tr[ >]/g, '\n')         // 表格行（仅精确匹配标签名）
+    .replace(/<w:tc[ >]/g, ' | ')        // 表格单元格
     .replace(/<[^>]+>/g, '')
     .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"').replace(/&#39;/g, "'")
