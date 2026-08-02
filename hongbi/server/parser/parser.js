@@ -20,8 +20,9 @@ module.exports = (() => {
   function trunc(s, n) { s = String(s); return s.length > n ? s.slice(0, n) + '…' : s; }
 
   /* 同行选项提取：题目行内带 "A.甲 B.乙 C.丙 D.丁"（含全角点 A．甲）时拆出选项
-     安全校验：选项字母必须从 A 开始、严格递增且不重复，避免正文中的 e. / d. 等英文片段误触发 */
-  function extractInlineOptions(t) {
+     安全校验：选项字母必须从 A 开始、严格递增且不重复，避免正文中的 e. / d. 等英文片段误触发
+     allowEmptyQ=true：选项独占一行（无题干）时也接受 */
+  function extractInlineOptions(t, allowEmptyQ) {
     const str = String(t == null ? '' : t);
     const re = /[A-Fa-f]\s*[.、)）．]/g;
     const marks = [];
@@ -43,7 +44,7 @@ module.exports = (() => {
     parts.push(str.slice(last));
     const q = clean(parts[0]);
     const opts = parts.slice(1).map(p => clean(p.replace(/^[A-Fa-f]\s*[.、)）．]\s*/, '')));
-    if (opts.length < 2 || !q || opts.some(o => !o)) return null;
+    if (opts.length < 2 || (!allowEmptyQ && !q) || opts.some(o => !o)) return null;
     return { q, opts };
   }
 
@@ -284,6 +285,16 @@ module.exports = (() => {
       }
       if ((m = raw.match(RE_NUM))) { pushLineQ(clean(m[1])); continue; }
       if ((m = raw.match(RE_QMARK))) { pushLineQ(clean(m[2])); continue; }
+      // 同行选项行（A.80 B.96 C.124 D.168 在一行）：整行拆成选项（优先于行首单选项）
+      if (/^[A-Fa-f]\s*[.、)）．]/.test(raw) && ((raw.match(/[A-Fa-f]\s*[.、)）．]/g) || []).length >= 2)) {
+        const inline = extractInlineOptions(raw, true);
+        if (inline && inline.opts.length >= 2) {
+          if (!cur) pushQ('');
+          cur.options.push(...inline.opts);
+          if (!cur.q && inline.q) cur.q = inline.q;
+          continue;
+        }
+      }
       if ((m = raw.match(RE_OPT))) {
         if (!cur) pushQ('');
         const letter = m[1].toUpperCase().charCodeAt(0);
@@ -297,16 +308,6 @@ module.exports = (() => {
           else cur.explanation = (cur.explanation ? cur.explanation + ' ' : '') + clean(raw);
         }
         continue;
-      }
-      // 同行选项行（A.80 B.96 C.124 D.168 在一行）：整行拆成选项
-      if (/^[A-Fa-f]\s*[.、)）．]/.test(raw) && ((raw.match(/[A-Fa-f]\s*[.、)）．]/g) || []).length >= 2)) {
-        const inline = extractInlineOptions(raw);
-        if (inline && inline.opts.length >= 2) {
-          if (!cur) pushQ('');
-          cur.options.push(...inline.opts);
-          if (!cur.q && inline.q) cur.q = inline.q;
-          continue;
-        }
       }
       // 判断题选项行（正确/错误/对/错）：收集为选项，避免污染题干或解析
       if ((raw === '正确' || raw === '错误' || raw === '对' || raw === '错') && cur) {

@@ -284,7 +284,7 @@ document.addEventListener('click', async e => {
       const ok = await confirmModal({ title: '退出本轮刷题', body: '<p class="m-line">已作答 ' + s.answered + ' 题，进度已同步服务器。</p>', okText: '退出', danger: true });
       if (ok) {
         session = null;
-        const qt = '#/quiz/' + s.setId;
+        const qt = s.mode === 'wrong' ? '#/wrong' : '#/quiz/' + s.setId;
         if (location.hash === qt) render(); else location.hash = qt;
       }
       break;
