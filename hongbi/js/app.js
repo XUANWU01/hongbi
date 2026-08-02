@@ -32,6 +32,7 @@ async function render() {
       case 'audit': await renderAudit(); break;
       case 'parser': await renderParserStats(); break;
       case 'official': await renderOfficial(); break;
+      case 'users': await renderUsers(); break;
       case 'profile': await renderProfile(); break;
       case 'quiz': await renderQuizView(param, param2); return;
       default: await renderHome(); break;
@@ -169,7 +170,7 @@ function showSwitchAccountModal() {
         '<div class="field"><label>密码</label><input id="sw-pass" type="password" placeholder="至少 6 位"></div>' +
         '<div id="sw-msg" style="font-size:12.5px;color:var(--red);min-height:18px"></div>' +
         '<button class="btn btn-primary btn-block" id="sw-login">登录</button>' +
-        '<p class="m-note" style="text-align:center;margin-top:8px">或者<a href="#" data-action="open-auth" style="color:var(--cyan-2)">注册新账号</a> · <a href="#" data-action="device-switch" style="color:var(--cyan-2)">设备模式</a></p>' +
+        '<p class="m-note" style="text-align:center;margin-top:8px">或者<button class="btn-link" data-action="open-auth">注册新账号</button> · <button class="btn-link" data-action="device-switch">设备模式</button></p>' +
       '</div>' +
     '</div>'
   );
@@ -361,6 +362,22 @@ document.addEventListener('click', async e => {
       if (!ok) break;
       try { await ServerAPI.deleteOfficialSet(t.dataset.id); toast('已删除'); render(); }
       catch (e) { toast('删除失败：' + e.message, 'err'); }
+      break;
+    }
+
+    /* 用户管理 */
+    case 'promote-user': {
+      const ok = await confirmModal({ title: '提升为管理员', body: '<p class="m-line">将「' + esc(t.dataset.name) + '」提升为管理员？</p><p style="font-size:12px;color:var(--ink-3)">管理员可以审核题库贡献、查看解析质量。</p>', okText: '确认提升' });
+      if (!ok) break;
+      try { await ServerAPI.setUserRole(t.dataset.id, 'admin'); toast('已提升为管理员 ✓'); render(); }
+      catch (e) { toast('操作失败：' + e.message, 'err'); }
+      break;
+    }
+    case 'demote-user': {
+      const ok = await confirmModal({ title: '降为普通用户', body: '<p class="m-line">将「' + esc(t.dataset.name) + '」降为普通用户？</p><p style="font-size:12px;color:var(--ink-3)">降级后该用户将无法访问管理功能。</p>', okText: '确认降级', danger: true });
+      if (!ok) break;
+      try { await ServerAPI.setUserRole(t.dataset.id, 'user'); toast('已降为普通用户 ✓'); render(); }
+      catch (e) { toast('操作失败：' + e.message, 'err'); }
       break;
     }
 

@@ -86,6 +86,37 @@ function registerAdminRoutes(app) {
     })));
   });
 
+  // ===== 用户管理（仅 superadmin） =====
+
+  // 列出所有用户
+  app.get('/api/admin/users', authRequired, requireRole('superadmin'), (req, res) => {
+    const rows = db.prepare('SELECT id, username, nickname, role, created_at FROM users ORDER BY created_at ASC').all();
+    // 附加每个用户的统计
+    const result = rows.map(u => {
+      const attempts = db.prepare('SELECT COUNT(*) AS n FROM attempt_logs WHERE owner_id = ? AND owner_type = ?')
+        .get(u.id, 'user').n;
+      const sets = db.prepare('SELECT COUNT(*) AS n FROM sets WHERE owner_id = ? AND owner_type = ?')
+        .get(u.id, 'user').n;
+      return { id: u.id, username: u.username, nickname: u.nickname || '', role: u.role,
+        attempts, sets, createdAt: u.created_at };
+    });
+    res.json(result);
+  });
+
+  // 修改用户角色
+  app.patch('/api/admin/users/:id/role', authRequired, requireRole('superadmin'), (req, res) => {
+    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id);
+    if (!user) { res.status(404).json({ error: '用户不存在' }); return; }
+    const { role } = req.body || {};
+    if (!['user', 'admin'].includes(role)) { res.status(400).json({ error: '无效角色：仅支持 user/admin（不可降级 superadmin）' }); return; }
+    if (user.role === 'superadmin') { res.status(403).json({ error: '不可修改超级管理员的角色' }); return; }
+    if (user.role === role) { res.status(400).json({ error: '角色未改变' }); return; }
+    db.prepare('UPDATE users SET role=? WHERE id=?').run(role, user.id);
+    auditLog(req.auth.ownerId, req.auth.ownerType, 'user_role_change', 'user', user.id,
+      { username: user.username, from: user.role, to: role });
+    res.json({ ok: true, role });
+  });
+
   // ===== 官方精选题库（仅 superadmin） =====
 
   // 列出所有官方题库

@@ -298,6 +298,7 @@ async function renderAdmin() {
   const subNav = '<div class="admin-subnav">' +
     '<a href="#/admin" class="active">审核队列</a>' +
     (ServerAPI.identity && ServerAPI.identity.role === 'superadmin' ? '<a href="#/audit">审计日志</a>' : '') +
+    (ServerAPI.identity && ServerAPI.identity.role === 'superadmin' ? '<a href="#/users">用户管理</a>' : '') +
     (ServerAPI.identity && ServerAPI.identity.role === 'superadmin' ? '<a href="#/official">官方题库</a>' : '') +
     '<a href="#/parser">解析质量</a>' +
     '</div>';
@@ -437,6 +438,52 @@ async function renderProfile() {
   } catch (e) {
     view.innerHTML = emptyState('✗', '加载失败', e.message || '未能获取用户数据', '<button class="btn btn-primary btn-sm" data-action="retry">重试</button>');
   }
+}
+
+/* ============================================================
+   用户管理（仅 superadmin）
+   ============================================================ */
+async function renderUsers() {
+  const view = $('#view');
+  if (!ServerAPI.isAdmin() || ServerAPI.identity.role !== 'superadmin') {
+    view.innerHTML = emptyState('⚑', '需要超级管理员权限', '仅超级管理员可以管理用户角色。', '<button class="btn btn-primary btn-sm" data-action="go-home">返回首页</button>');
+    return;
+  }
+  view.innerHTML = loadingHtml('正在加载用户列表…');
+  const subNav = '<div class="admin-subnav">' +
+    '<a href="#/admin">审核队列</a>' +
+    '<a href="#/audit">审计日志</a>' +
+    '<a href="#/official">官方题库</a>' +
+    '<a href="#/users" class="active">用户管理</a>' +
+    '<a href="#/parser">解析质量</a>' +
+    '</div>';
+  try {
+    const users = await ServerAPI.getUsers();
+    const roleMap = { superadmin: '超级管理员', admin: '管理员', user: '普通用户' };
+    const roleChip = r => r === 'superadmin' ? 'chip-public' : r === 'admin' ? 'chip-pending' : '';
+    view.innerHTML = '' +
+      '<div class="section-head" style="margin-top:6px"><div><h2>用户管理</h2>' +
+      '<div class="section-sub">管理用户角色：可将普通用户提升为管理员或降回</div></div></div>' +
+      subNav +
+      '<table class="audit-table" style="margin-top:12px">' +
+        '<thead><tr><th>用户</th><th>角色</th><th>统计</th><th>注册时间</th><th>操作</th></tr></thead>' +
+        '<tbody>' +
+        users.map(u => '<tr>' +
+            '<td><b>' + esc(u.nickname || u.username) + '</b>' +
+              (u.nickname ? ' <span style="color:var(--ink-3);font-size:11.5px">@' + esc(u.username) + '</span>' : '') + '</td>' +
+            '<td><span class="chip ' + roleChip(u.role) + '">' + (roleMap[u.role] || u.role) + '</span></td>' +
+            '<td>' + u.attempts + ' 题 · ' + u.sets + ' 库</td>' +
+            '<td>' + fmtDate(u.createdAt) + '</td>' +
+            '<td>' +
+              (u.role === 'user'
+                ? '<button class="btn btn-sm btn-ghost" data-action="promote-user" data-id="' + u.id + '" data-name="' + escAttr(u.nickname || u.username) + '">提升为管理员</button>'
+                : u.role === 'admin'
+                  ? '<button class="btn btn-sm btn-ghost" data-action="demote-user" data-id="' + u.id + '" data-name="' + escAttr(u.nickname || u.username) + '">降为普通用户</button>'
+                  : '<span style="color:var(--ink-3);font-size:12px">—</span>') +
+            '</td></tr>').join('') +
+        '</tbody></table>' +
+      '<p class="m-note" style="margin-top:8px">超级管理员不可被降级。如需将超级管理员转给他人，请在服务器端修改。</p>';
+  } catch (e) { view.innerHTML = emptyState('✗', '加载失败', e.message, '<button class="btn btn-primary btn-sm" data-action="retry">重试</button>'); }
 }
 
 /* ============================================================

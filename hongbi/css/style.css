@@ -1183,3 +1183,5 @@ kbd { font-family: var(--font-mono); font-size: 10.5px; background: rgba(148, 18
 .ru-card:hover { border-color:var(--cyan); background:rgba(148,183,255,.06); }
 .ru-avatar { width:32px; height:32px; border-radius:50%; background:linear-gradient(135deg,var(--cyan),var(--purple)); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:900; font-size:14px; flex-shrink:0; }
 .ru-name { font-size:14px; font-weight:600; }
+.btn-link { background:none; border:none; color:var(--cyan-2); cursor:pointer; font-size:inherit; padding:0; text-decoration:underline; }
+.btn-link:hover { color:var(--cyan); }
