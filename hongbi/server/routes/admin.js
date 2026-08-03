@@ -144,13 +144,19 @@ function registerAdminRoutes(app) {
 
   // ===== 官方精选题库（仅 superadmin） =====
 
-  // 列出所有官方题库
+  // 列出所有官方题库（支持分页）
   app.get('/api/admin/official', authRequired, requireRole('superadmin'), (req, res) => {
-    const rows = db.prepare("SELECT * FROM sets WHERE source='official' ORDER BY created_at DESC").all();
-    res.json(rows.map(r => ({
-      id: r.id, title: r.title, desc: r.desc, category: r.category,
-      source: r.source, questionCount: qCount(r.id), createdAt: r.created_at
-    })));
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const size = Math.min(100, Math.max(1, Number(req.query.size) || 20));
+    const total = db.prepare("SELECT COUNT(*) AS n FROM sets WHERE source='official'").get().n;
+    const rows = db.prepare("SELECT * FROM sets WHERE source='official' ORDER BY created_at DESC LIMIT ? OFFSET ?")
+      .all(size, (page - 1) * size);
+    res.json({
+      items: rows.map(r => ({
+        id: r.id, title: r.title, desc: r.desc, category: r.category,
+        source: r.source, questionCount: qCount(r.id), createdAt: r.created_at
+      })), total, page, size
+    });
   });
 
   // 从解析任务创建官方题库
@@ -176,6 +182,15 @@ function registerAdminRoutes(app) {
   });
 
   // 从已有题库复制为官方题库
+
+  // 将官方题库降回社区
+  app.post('/api/admin/official/:id/downgrade', authRequired, requireRole('superadmin'), (req, res) => {
+    const r = db.prepare("SELECT * FROM sets WHERE id = ? AND source='official'").get(req.params.id);
+    if (!r) { res.status(404).json({ error: '官方题库不存在' }); return; }
+    db.prepare("UPDATE sets SET source='public', updated_at=? WHERE id=?").run(Date.now(), r.id);
+    auditLog(req.auth.ownerId, req.auth.ownerType, 'set_official_downgrade', 'set', r.id, { title: r.title });
+    res.json({ ok: true, message: '已降为社区题库' });
+  });
 
   // 删除官方题库
   app.delete('/api/admin/official/:id', authRequired, requireRole('superadmin'), (req, res) => {

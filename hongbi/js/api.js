@@ -156,10 +156,15 @@ const ServerAPI = {
   rejectReview(id, reason) { return apiPost('api/admin/reviews/' + encodeURIComponent(id) + '/reject', { reason }); },
 
   /* ---------- 官方精选题库 ---------- */
-  getOfficialSets() { return apiGet('api/admin/official'); },
+  getOfficialSets(opts = {}) {
+    const qs = new URLSearchParams();
+    Object.entries(opts).forEach(([k, v]) => { if (v !== undefined && v !== null) qs.set(k, v); });
+    return apiGet('api/admin/official?' + qs.toString());
+  },
   createOfficialSet({ jobId, title, category, desc }) { return apiPost('api/admin/official', { jobId, title, category, desc }); },
   deleteOfficialSet(id) { return apiDelete('api/admin/official/' + encodeURIComponent(id)); },
   upgradeOfficialSet(setId) { return apiPost('api/admin/official/upgrade', { setId }); },
+  downgradeOfficialSet(id) { return apiPost('api/admin/official/' + encodeURIComponent(id) + '/downgrade', {}); },
 
   /* ---------- 用户管理 ---------- */
   getUsers() { return apiGet('api/admin/users'); },

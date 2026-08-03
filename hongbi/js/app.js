@@ -7,6 +7,8 @@
 function parseHash() {
   let h = location.hash.replace(/^#\/?/, '');
   if (!h) h = 'home';
+  // 分离 query string
+  h = h.split('?')[0];
   const parts = h.split('/').filter(Boolean);
   return { path: parts[0] || 'home', param: parts[1], param2: parts[2] };
 }
@@ -438,6 +440,27 @@ document.addEventListener('click', async e => {
       if (!/^sm/.test(setId)) { toast('无效的题库 ID（应以 sm 开头，请从卡片上点击复制）', 'err'); break; }
       try { await ServerAPI.upgradeOfficialSet(setId); toast('已升级为官方题库 ✓'); render(); }
       catch (e) { toast('升级失败：' + e.message, 'err'); }
+      break;
+    }
+    case 'downgrade-official': {
+      const ok = await confirmModal({ title: '降为社区题库', body: '<p class="m-line">将官方题库「' + esc(t.dataset.title) + '」降回社区？</p><p style="font-size:12px;color:var(--ink-3)">降级后恢复为普通公开题库，不再显示为官方精选。</p>', okText: '确认降级', danger: true });
+      if (!ok) break;
+      try { await ServerAPI.downgradeOfficialSet(t.dataset.id); toast('已降为社区题库 ✓'); render(); }
+      catch (e) { toast('降级失败：' + e.message, 'err'); }
+      break;
+    }
+    case 'official-prev': {
+      const params = new URLSearchParams(location.hash.split('?')[1] || '');
+      const p = Math.max(1, Number(params.get('page') || 1) - 1);
+      params.set('page', p);
+      location.hash = '#/official?' + params.toString();
+      break;
+    }
+    case 'official-next': {
+      const params = new URLSearchParams(location.hash.split('?')[1] || '');
+      const p = Number(params.get('page') || 1) + 1;
+      params.set('page', p);
+      location.hash = '#/official?' + params.toString();
       break;
     }
     case 'upgrade-official': {

@@ -567,12 +567,20 @@ async function renderOfficial() {
         '<div><button class="btn btn-primary" data-action="create-official" style="width:100%">创建官方题库</button></div>' +
       '</div></div>' +
       // 已有官方题库列表
-      '<div class="section-head" style="margin-top:24px"><div><h2>已有官方题库（' + officialSets.length + '）</h2></div></div>' +
+      '<div class="section-head" style="margin-top:24px"><div><h2>已有官方题库（' + oTotal + '）</h2></div></div>' +
+      (oPages > 1
+        ? '<div class="pager" style="margin-bottom:10px">' +
+            '<button class="btn btn-sm btn-ghost" data-action="official-prev" ' + (page <= 1 ? 'disabled' : '') + '>←</button>' +
+            '<span class="pager-info">' + page + ' / ' + oPages + '</span>' +
+            '<button class="btn btn-sm btn-ghost" data-action="official-next" ' + (page >= oPages ? 'disabled' : '') + '>→</button>' +
+          '</div>'
+        : '') +
       (officialSets.length
         ? officialSets.map(s => '<div class="list-row">' +
             '<div class="row-main"><div class="row-title">' + esc(s.title) + '</div>' +
             '<div class="row-sub">' + s.questionCount + ' 题 · ' + esc(s.category) + ' · ' + relTime(s.createdAt) + '</div></div>' +
             '<div class="row-actions">' +
+              '<button class="btn btn-sm btn-ghost" data-action="downgrade-official" data-id="' + s.id + '" data-title="' + escAttr(s.title) + '">降为社区</button>' +
               '<button class="btn btn-sm btn-danger" data-action="delete-official" data-id="' + s.id + '" data-title="' + escAttr(s.title) + '">删除</button>' +
             '</div></div>').join('')
         : emptyState('📚', '还没有官方题库', '上传文件后在此创建官方精选题库，或从「审核队列」直接升级为官方', '')) +
