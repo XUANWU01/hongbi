@@ -695,7 +695,7 @@ function renderUpload() {
       '<div>' +
         '<div class="panel-card"><h3><span class="p-num">META</span>题库信息</h3><div class="form-grid">' +
           '<div class="field"><label for="f-title">题库标题 *</label><input id="f-title" maxlength="40" value="' + esc(uploadState.title) + '"></div>' +
-          '<div class="field"><label for="f-cat">分类</label><select id="f-cat">' + CATEGORIES.map(c => '<option' + (c === uploadState.cat ? ' selected' : '') + '>' + c + '</option>').join('') + '</select></div>' +
+          '<div class="field"><label for="f-cat">分类 *</label><select id="f-cat">' + CATEGORIES.map(c => '<option' + (c === (uploadState.cat || '其他') ? ' selected' : '') + '>' + c + '</option>').join('') + '</select></div>' +
           '<div class="field"><label for="f-tags">标签（逗号分隔）</label><input id="f-tags" placeholder="如：考试, 高频" value="' + esc(uploadState.tags) + '"></div>' +
           '<div class="field"><label for="f-desc">描述（可选）</label><textarea id="f-desc" maxlength="120">' + esc(uploadState.desc) + '</textarea></div>' +
         '</div></div>' +
@@ -812,7 +812,7 @@ async function handleUploadFile(file) {
     uploadState = {
       name: file.name, fileName: file.name, status: 'preview', job,
       title: file.name.replace(/\.[^.]+$/, ''),
-      cat: '其他', tags: '', desc: '',
+      cat: '', tags: '', desc: '',
       appendSetId: uploadState.appendSetId || null,
       appendTitle: uploadState.appendTitle || '',
       appendCount: uploadState.appendCount || 0
