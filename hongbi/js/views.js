@@ -570,9 +570,10 @@ async function renderOfficial() {
         '<div class="field"><label for="of-cat">分类</label><select id="of-cat">' + CATEGORIES.map(c => '<option>' + c + '</option>').join('') + '</select></div>' +
         '<div class="field"><label for="of-desc">描述（可选）</label><input id="of-desc" maxlength="120" placeholder="简要说明"></div>' +
         '<div class="field"><label for="of-source">素材来源</label><select id="of-source" style="width:100%">' +
-          '<option value="">-- 选择解析任务 --</option>' +
+          '<option value="">-- 选择已有解析任务 --</option>' +
           (Array.isArray(jobs) ? jobs.map(j => '<option value="' + j.id + '">' + esc(j.fileName || j.id) + '（' + (j.total || 0) + '题）</option>').join('') : '') +
         '</select></div>' +
+        '<div class="field"><label>或直接上传文件</label><input type="file" id="of-file" accept=".docx,.pdf,.txt,.md,.csv,.tsv,.json" style="font-size:13px"></div>' +
         '<div><button class="btn btn-primary" data-action="create-official" style="width:100%">创建官方题库</button></div>' +
       '</div></div>' +
       // 已有官方题库列表

@@ -430,10 +430,35 @@ document.addEventListener('click', async e => {
       const title = $('#of-title')?.value.trim();
       const cat = $('#of-cat')?.value || '常识/百科';
       const desc = $('#of-desc')?.value.trim();
-      const jobId = $('#of-source')?.value;
       if (!title) { toast('请输入题库标题', 'err'); break; }
-      if (!jobId) { toast('请选择解析任务作为素材', 'err'); break; }
-      try { const r = await ServerAPI.createOfficialSet({ jobId, title, category: cat, desc }); toast('已创建官方题库「' + title + '」（' + r.questionCount + '题）'); render(); }
+      const jobId = $('#of-source')?.value;
+      const fileInput = $('#of-file');
+      const file = fileInput?.files?.[0];
+      if (!jobId && !file) { toast('请选择已有解析任务或上传文件', 'err'); break; }
+      let useJobId = jobId;
+      if (file && !jobId) {
+        // 直接上传文件 → 解析 → 创建官方题库
+        toast('正在上传并解析文件…');
+        try {
+          const fd = new FormData(); fd.append('file', file);
+          const token = localStorage.getItem('hb_token');
+          const res = await fetch('api/upload', { method: 'POST', headers: { Authorization: '***' + token }, body: fd });
+          if (!res.ok) { const e = await res.json(); throw new Error(e.error); }
+          const { jobId: newJobId } = await res.json();
+          // 轮询解析结果
+          let job, attempts = 0;
+          while (attempts < 120) {
+            await new Promise(r => setTimeout(r, 1000));
+            job = await (await fetch('api/upload/' + newJobId, { headers: { Authorization: '***' + token } })).json();
+            if (job.status === 'done' || job.status === 'failed') break;
+            attempts++;
+          }
+          if (!job || job.status === 'failed') throw new Error(job?.error || '解析失败');
+          useJobId = newJobId;
+        } catch (e) { toast('上传失败：' + e.message, 'err'); break; }
+      }
+      if (!useJobId) { toast('素材无效', 'err'); break; }
+      try { const r = await ServerAPI.createOfficialSet({ jobId: useJobId, title, category: cat, desc }); toast('已创建官方题库「' + title + '」（' + r.questionCount + '题）'); render(); }
       catch (e) { toast('创建失败：' + e.message, 'err'); }
       break;
     }
