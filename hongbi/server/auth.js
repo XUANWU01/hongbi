@@ -241,12 +241,6 @@ function registerAuthRoutes(app) {
     res.json({ ok: true, nickname: n, bio: b });
   });
 
-  // 退出登录
-  app.post('/api/auth/logout', authRequired, (req, res) => {
-    db.prepare('DELETE FROM sessions WHERE token = ?').run(req.auth.token);
-    res.json({ ok: true });
-  });
-
   // ===== 通知 =====
 
   app.get('/api/notifications', authRequired, (req, res) => {
