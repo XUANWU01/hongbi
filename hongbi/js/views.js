@@ -871,6 +871,7 @@ function openQuestionEditor() {
   const overlay = openModal(
     '<div class="modal-head"><h3>编辑全部题目（' + qs.length + ' 题）</h3>' +
     '<div style="display:flex;gap:8px;align-items:center">' +
+      '<button class="btn btn-sm btn-primary" data-action="editor-add">＋ 添加题目</button>' +
       '<button class="btn btn-sm btn-ghost" id="ed-prev" ' + (page === 0 ? 'disabled' : '') + '>←</button>' +
       '<span id="ed-pager" style="font-size:13px;color:var(--ink-2)">1 / ' + totalPages + '</span>' +
       '<button class="btn btn-sm btn-ghost" id="ed-next" ' + (page >= totalPages - 1 ? 'disabled' : '') + '>→</button>' +

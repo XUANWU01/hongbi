@@ -609,6 +609,13 @@ document.addEventListener('click', async e => {
       openQuestionEditor();
       break;
     }
+    case 'editor-add': {
+      if (!uploadState || !uploadState.editedQuestions) break;
+      uploadState.editedQuestions.push({ q: '新题目', options: [], answer: '', explanation: '', type: 'text' });
+      toast('已添加新题目');
+      openQuestionEditor();
+      break;
+    }
     case 'upload-reset': uploadState = null; render(); break;
     case 'confirm-public': await submitUpload(true); break;
     case 'confirm-private': await submitUpload(false); break;
