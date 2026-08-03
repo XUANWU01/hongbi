@@ -271,7 +271,7 @@ function registerAuthRoutes(app) {
 
   // 限流兜底
   app.use('/api/upload', (req, res, next) => {
-    try { rateLimitUpload(req.auth, req.headers['content-length'] | 0); next(); }
+    try { rateLimitUpload(req.auth, Number(req.headers['content-length']) || 0); next(); }
     catch (e) { res.status(429).json({ error: e.message }); }
   });
 }

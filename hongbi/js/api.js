@@ -83,7 +83,9 @@ const ServerAPI = {
   getWrong() { return apiGet('api/wrong'); },
   learnedWrong(qid) { return apiDelete('api/wrong/' + encodeURIComponent(qid)); },
   getFavs() { return apiGet('api/favorites'); },
-  toggleFav(questionId) { return apiPost('api/favorites', { questionId }); },
+  addFav(questionId) { return apiPost('api/favorites', { questionId }); },
+  removeFav(questionId) { return apiDelete('api/favorites/' + encodeURIComponent(questionId)); },
+  clearWrong() { return apiDelete('api/wrong'); },
   getStats() { return apiGet('api/stats/me'); },
 
   /* ---------- 上传 ---------- */

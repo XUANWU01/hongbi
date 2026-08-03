@@ -138,6 +138,18 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: err.message || '服务器错误' });
 });
 
+// 解析任务自动清理（每 6 小时清理 7 天前的过期任务及文件）
+const CLEAN_AFTER_DAYS = 7;
+setInterval(() => {
+  const cutoff = Date.now() - CLEAN_AFTER_DAYS * 86400000;
+  const old = db.prepare("SELECT id, file_path FROM upload_jobs WHERE created_at < ?").all(cutoff);
+  for (const j of old) {
+    try { if (j.file_path) fs.unlinkSync(j.file_path); } catch (e) { /* ignore */ }
+    db.prepare('DELETE FROM upload_jobs WHERE id = ?').run(j.id);
+  }
+  if (old.length) console.log('[cleanup] 清理 ' + old.length + ' 个过期解析任务');
+}, 6 * 3600 * 1000);
+
 app.listen(PORT, HOST, () => {
   console.log('════════════════════════════════════════');
   console.log('  红笔 HONGBI v3 服务已启动');
