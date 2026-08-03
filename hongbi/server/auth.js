@@ -242,6 +242,19 @@ function registerAuthRoutes(app) {
     res.json({ ok: true, nickname: n, bio: b });
   });
 
+  // 修改密码
+  app.put('/api/user/password', authRequired, (req, res) => {
+    const user = getUserById(req.auth.ownerId);
+    if (!user) { res.status(404).json({ error: '用户不存在' }); return; }
+    const { oldPassword, newPassword } = req.body || {};
+    if (!oldPassword || !newPassword) { res.status(400).json({ error: '请填写旧密码和新密码' }); return; }
+    if (String(newPassword).length < 6) { res.status(400).json({ error: '新密码至少 6 位' }); return; }
+    if (hashPassword(String(oldPassword), user.salt) !== user.pass_hash) { res.status(401).json({ error: '旧密码错误' }); return; }
+    const newHash = hashPassword(String(newPassword), user.salt);
+    db.prepare('UPDATE users SET pass_hash=? WHERE id=?').run(newHash, user.id);
+    res.json({ ok: true });
+  });
+
   // ===== 通知 =====
 
   app.get('/api/notifications', authRequired, (req, res) => {

@@ -446,6 +446,7 @@ async function renderProfile() {
         '</div>' +
         '</div>' +
         '<button class="btn btn-ghost btn-sm" data-action="edit-profile">编辑资料</button>' +
+          '<button class="btn btn-ghost btn-sm" data-action="change-password" style="margin-left:6px">修改密码</button>' +
       '</div>' +
       // 今日状态
       '<div class="today-banner">' +
