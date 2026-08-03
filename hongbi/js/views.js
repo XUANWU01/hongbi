@@ -310,7 +310,7 @@ async function renderFav() {
    ============================================================ */
 async function renderAdmin() {
   const view = $('#view');
-  if (!ServerAPI.isAdmin()) { toast('需要管理员权限', 'err'); location.hash = '#/home'; return; }
+  if (!ServerAPI.isAdmin()) { toast('需要管理员权限', 'err'); location.replace('#/home'); return; }
   view.innerHTML = loadingHtml('正在加载审核队列…');
   let data;
   try { data = await ServerAPI.getReviews('pending'); } catch (e) { view.innerHTML = emptyState('✗', '加载失败', e.message, ''); return; }
@@ -345,7 +345,7 @@ async function renderAdmin() {
    ============================================================ */
 async function renderAudit() {
   const view = $('#view');
-  if (!ServerAPI.isAdmin() || ServerAPI.identity.role !== 'superadmin') { toast('需要超级管理员权限', 'err'); location.hash = '#/home'; return; }
+  if (!ServerAPI.isAdmin() || ServerAPI.identity.role !== 'superadmin') { toast('需要超级管理员权限', 'err'); location.replace('#/home'); return; }
   view.innerHTML = loadingHtml('正在加载审计日志…');
   try {
     const data = await apiGet('api/admin/audit?page=1&size=30');
@@ -407,7 +407,7 @@ async function renderParserStats() {
    ============================================================ */
 async function renderProfile() {
   const view = $('#view');
-  if (ServerAPI.identity && ServerAPI.identity.type === 'device') { toast('访客模式无个人信息页', 'err'); location.hash = '#/home'; setTimeout(() => openAuthModal(), 500); return; }
+  if (ServerAPI.identity && ServerAPI.identity.type === 'device') { toast('访客模式无个人信息页', 'err'); location.replace('#/home'); setTimeout(() => openAuthModal(), 500); return; }
   try {
     view.innerHTML = loadingHtml('正在加载个人数据…');
     const data = await ServerAPI.getProfile();
@@ -592,7 +592,7 @@ async function renderOfficial() {
 function renderUpload() {
   const view = $('#view');
   // 访客/设备用户：引导注册
-  if (ServerAPI.identity && ServerAPI.identity.type === 'device') { toast('请先注册账号后再上传题库', 'err'); location.hash = '#/home'; setTimeout(() => openAuthModal(), 500); return; }
+  if (ServerAPI.identity && ServerAPI.identity.type === 'device') { toast('请先注册账号后再上传题库', 'err'); location.replace('#/home'); setTimeout(() => openAuthModal(), 500); return; }
   const stepsHtml = n => {
     const steps = [
       { t: '选择文件', s: n > 1 ? 'done' : 'active' },
