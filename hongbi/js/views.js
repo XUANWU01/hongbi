@@ -555,6 +555,8 @@ async function renderOfficial() {
     // 加载最近完成的解析任务（供选择素材）
     let jobs = [];
     try { jobs = await apiGet('api/admin/jobs?status=done&limit=20'); } catch (e) { /* ignore */ }
+    let upgradeable = [], upTotal = 0;
+    try { const ud = await ServerAPI.getUpgradeableSets({ page: 1, size: 50 }); upgradeable = ud.items || []; upTotal = ud.total || 0; } catch (e) { /* ignore */ }
     view.innerHTML = '' +
       '<div class="section-head" style="margin-top:6px"><div><h2>官方精选题库</h2>' +
       '<div class="section-sub">创建和维护系统内置官方题库，仅超级管理员可见此页</div></div></div>' +
