@@ -587,7 +587,7 @@ document.addEventListener('click', async e => {
         const newPwd2 = $('#cp-new2').value;
         if (!oldPwd || !newPwd) { $('#cp-msg').textContent = '请填写旧密码和新密码'; return; }
         if (newPwd !== newPwd2) { $('#cp-msg').textContent = '两次新密码不一致'; return; }
-        try { await ServerAPI.changePassword(oldPwd, newPwd); closeModal(); toast('密码已修改 ✓'); }
+        try { await ServerAPI.changePassword(oldPwd, newPwd); closeModal(); toast('密码已修改，请重新登录'); await ServerAPI.logout().catch(()=>{}); localStorage.removeItem('hb_token'); ServerAPI.identity = null; location.hash = '#/home'; refreshIdentityUI(); setTimeout(() => openAuthModal(), 500); }
         catch (e) { $('#cp-msg').textContent = e.message; }
       });
       break;
