@@ -64,9 +64,11 @@ function mergeDeviceIntoUser(deviceId, userId) {
   db.prepare('DELETE FROM devices WHERE id = ?').run(deviceId);
 }
 
-/* ---------- 速率限制（内存计数） ---------- */
+/* ---------- 速率限制（内存计数，角色感知） ---------- */
 const rateMemory = new Map();
 function rateLimitUpload(auth, fileSize) {
+  // 超级管理员不限制
+  if (auth && auth.role === 'superadmin') return true;
   const key = (auth && auth.ownerId) || 'anon';
   const now = Date.now();
   let entry = rateMemory.get(key);
@@ -75,8 +77,11 @@ function rateLimitUpload(auth, fileSize) {
     rateMemory.set(key, entry);
   }
   if (now > entry.dayReset) { entry.bytes = 0; entry.dayReset = now + 86400000; }
-  if (entry.count >= RATE_UPLOAD_PER_HOUR) throw Object.assign(new Error('每小时上传次数超限'), { code: 'RATE_LIMIT' });
-  if (entry.bytes + (fileSize || 0) > RATE_BYTES_PER_DAY) throw Object.assign(new Error('每日容量超限'), { code: 'SIZE_QUOTA' });
+  // 管理员 2 倍限额
+  const limitH = (auth && auth.role === 'admin') ? RATE_UPLOAD_PER_HOUR * 2 : RATE_UPLOAD_PER_HOUR;
+  const limitD = (auth && auth.role === 'admin') ? RATE_BYTES_PER_DAY * 2 : RATE_BYTES_PER_DAY;
+  if (entry.count >= limitH) throw Object.assign(new Error('每小时上传次数超限'), { code: 'RATE_LIMIT' });
+  if (entry.bytes + (fileSize || 0) > limitD) throw Object.assign(new Error('每日容量超限'), { code: 'SIZE_QUOTA' });
   entry.count++;
   entry.bytes += (fileSize || 0);
   return true;
