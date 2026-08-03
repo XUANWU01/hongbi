@@ -546,7 +546,12 @@ async function renderOfficial() {
     '<a href="#/parser">解析质量</a>' +
     '</div>';
   try {
-    const officialSets = await ServerAPI.getOfficialSets();
+    const page = Number(new URLSearchParams(location.hash.split('?')[1] || '').get('page') || 1);
+    const osize = 15;
+    const odata = await ServerAPI.getOfficialSets({ page, size: osize });
+    const officialSets = odata.items || [];
+    const oTotal = odata.total || officialSets.length;
+    const oPages = Math.ceil(oTotal / osize);
     // 加载最近完成的解析任务（供选择素材）
     let jobs = [];
     try { jobs = await apiGet('api/admin/jobs?status=done&limit=20'); } catch (e) { /* ignore */ }
@@ -580,6 +585,7 @@ async function renderOfficial() {
             '<div class="row-main"><div class="row-title">' + esc(s.title) + '</div>' +
             '<div class="row-sub">' + s.questionCount + ' 题 · ' + esc(s.category) + ' · ' + relTime(s.createdAt) + '</div></div>' +
             '<div class="row-actions">' +
+              '<button class="btn btn-sm btn-ghost" data-action="downgrade-official" data-id="' + s.id + '" data-title="' + escAttr(s.title) + '">降为社区</button>' +
               '<button class="btn btn-sm btn-ghost" data-action="downgrade-official" data-id="' + s.id + '" data-title="' + escAttr(s.title) + '">降为社区</button>' +
               '<button class="btn btn-sm btn-danger" data-action="delete-official" data-id="' + s.id + '" data-title="' + escAttr(s.title) + '">删除</button>' +
             '</div></div>').join('')
