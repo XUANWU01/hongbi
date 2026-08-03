@@ -80,10 +80,10 @@ const ServerAPI = {
   answer(setId, questionId, correct, answerText) {
     return apiPost('api/quiz/answer', { setId, questionId, correct, answerText: answerText || '' });
   },
-  getWrong() { return apiGet('api/quiz/wrong'); },
-  learnedWrong(qid) { return apiPatch('api/quiz/wrong/' + encodeURIComponent(qid) + '/learned', {}); },
-  getFavs() { return apiGet('api/quiz/fav'); },
-  toggleFav(questionId) { return apiPost('api/quiz/fav', { questionId }); },
+  getWrong() { return apiGet('api/wrong'); },
+  learnedWrong(qid) { return apiDelete('api/wrong/' + encodeURIComponent(qid)); },
+  getFavs() { return apiGet('api/favorites'); },
+  toggleFav(questionId) { return apiPost('api/favorites', { questionId }); },
   getStats() { return apiGet('api/stats/me'); },
 
   /* ---------- 上传 ---------- */
