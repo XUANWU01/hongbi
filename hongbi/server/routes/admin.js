@@ -43,6 +43,13 @@ function registerAdminRoutes(app) {
     if (!r) { res.status(404).json({ error: '待审核题库不存在' }); return; }
     db.prepare("UPDATE sets SET source='public', review_status='approved', updated_at=? WHERE id=?")
       .run(Date.now(), r.id);
+    auditLog(req.auth.ownerId, req.auth.ownerType, 'review_approve', 'set', r.id, { title: r.title });
+    // 通知原作者
+    if (r.owner_id && r.owner_type === 'user') {
+      createNotification(r.owner_id, 'review_approved',
+        '你的题库「' + r.title + '」已通过审核',
+        '审核已通过，题库已发布到题库广场，所有人可见。', r.id);
+    }
     res.json({ ok: true });
   });
 
@@ -54,8 +61,13 @@ function registerAdminRoutes(app) {
     if (!reason) { res.status(400).json({ error: '必须填写驳回原因' }); return; }
     db.prepare("UPDATE sets SET source='private', review_status='rejected', review_reason=?, updated_at=? WHERE id=?")
       .run(reason.slice(0, 200), Date.now(), r.id);
+    auditLog(req.auth.ownerId, req.auth.ownerType, 'review_reject', 'set', r.id, { title: r.title, reason });
+    if (r.owner_id && r.owner_type === 'user') {
+      createNotification(r.owner_id, 'review_rejected',
+        '你的题库「' + r.title + '」审核未通过',
+        '驳回原因：' + reason + '。题库已退回私库，修改后可重新提交。', r.id);
+    }
     res.json({ ok: true });
-    auditLog(req.auth.ownerId, req.auth.ownerType, 'review_reject', 'set', r.id, { reason });
   });
 
   // 审计日志查询（superadmin）

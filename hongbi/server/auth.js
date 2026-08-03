@@ -128,7 +128,7 @@ function registerAuthRoutes(app) {
     let role = 'user';
     const { n } = db.prepare('SELECT COUNT(*) AS n FROM users').get();
     if (n === 0) role = 'superadmin';
-    else if (ADMIN_KEY && key && String(key) === ADMIN_KEY) role = 'superadmin';
+    // ADMIN_KEY 注册页已废弃，后续管理员请到「后台管理→用户管理」提升
     const user = createUser(uname, password, role);
     if (deviceToken) {
       const s = resolveSession(deviceToken);
@@ -155,8 +155,9 @@ function registerAuthRoutes(app) {
     const token = createSession(user.id, 'user');
     res.json({ token, identity: { type: 'user', id: user.id, username: user.username, role: user.role } });
   });
+  // 管理密钥提升（已废弃，推荐在「后台管理 → 用户管理」页面操作）
   app.post('/api/auth/claim-admin', authRequired, (req, res) => {
-    if (!ADMIN_KEY) { res.status(400).json({ error: '服务器未配置管理密钥' }); return; }
+    if (!ADMIN_KEY) { res.status(400).json({ error: '管理密钥未配置，请在「后台管理→用户管理」中管理角色' }); return; }
     if ((req.body || {}).key !== ADMIN_KEY) { res.status(403).json({ error: '密钥错误' }); return; }
     if (req.auth.ownerType !== 'user') { res.status(400).json({ error: '请先注册账号' }); return; }
     db.prepare("UPDATE users SET role = 'superadmin' WHERE id = ?").run(req.auth.ownerId);
