@@ -603,8 +603,7 @@ document.addEventListener('click', async e => {
       if (ok) {
         saveQuizSession();
         session = null;
-        const qt = s.mode === 'wrong' ? '#/wrong' : '#/quiz/' + s.setId;
-        if (location.hash === qt) render(); else location.hash = qt;
+        location.hash = '#/library';
       }
       break;
     }
