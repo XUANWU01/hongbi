@@ -576,14 +576,26 @@ document.addEventListener('click', async e => {
     case 'rewrong': location.hash = '#/quiz/' + t.dataset.id + '/wrong'; break;
     case 'quiz-quit': {
       const s = session;
-      const ok = await confirmModal({ title: '退出本轮刷题', body: '<p class="m-line">已作答 ' + s.answered + ' 题，进度已同步服务器。</p>', okText: '退出', danger: true });
+      const ok = await confirmModal({ title: '退出本轮刷题', body: '<p class="m-line">已作答 ' + s.answered + ' 题，进度已同步服务器。<br><span style="color:var(--cyan-2)">下次进入将从第 ' + (s.pos + 1) + ' 题继续。</span></p>', okText: '退出', danger: true });
       if (ok) {
+        saveQuizSession();
         session = null;
         const qt = s.mode === 'wrong' ? '#/wrong' : '#/quiz/' + s.setId;
         if (location.hash === qt) render(); else location.hash = qt;
       }
       break;
     }
+    case 'quiz-reset': {
+      if (!session) break;
+      const ok = await confirmModal({ title: '重新开始', body: '<p class="m-line">将清除当前进度从头开始刷题？</p>', okText: '确认重置', danger: true });
+      if (ok) {
+        clearQuizSession();
+        session.pos = 0; session.correct = 0; session.answered = 0; session.wrongIdx = []; session.done = false;
+        renderQuiz();
+      }
+      break;
+    }
+
   }
 });
 

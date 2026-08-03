@@ -6,6 +6,28 @@
 const libraryState = { keyword: '', cat: '全部', sort: 'new', page: 1 };
 const PAGE_SIZE = 12;
 let session = null;         // 刷题会话
+
+/* 刷题进度持久化 */
+function saveQuizSession() {
+  if (!session || session.done) return;
+  // 只保存关键字段、排除大数据
+  const slim = { setId: session.setId, setTitle: session.setTitle, questionCount: session.questionCount,
+    order: session.order, pos: session.pos, correct: session.correct, answered: session.answered,
+    wrongIdx: session.wrongIdx, mode: session.mode, done: false };
+  localStorage.setItem('hb_quiz_' + session.setId, JSON.stringify(slim));
+}
+function loadQuizSession(setId) {
+  try {
+    const raw = localStorage.getItem('hb_quiz_' + setId);
+    if (!raw) return null;
+    const s = JSON.parse(raw);
+    if (s.done) return null;
+    return s;
+  } catch (e) { return null; }
+}
+function clearQuizSession(setId) {
+  localStorage.removeItem('hb_quiz_' + (setId || session?.setId || ''));
+}
 let uploadState = null;     // 上传流程
 let quizCache = {};         // 题目缓存 {setId: {idx: question}}
 
@@ -1135,6 +1157,15 @@ async function renderQuizView(setId, mode) {
 
   if (session && session.setId === setId && !session.done) { renderQuiz(); return; }
 
+  // 检查是否有保存的刷题进度
+  const saved = !session ? loadQuizSession(setId) : null;
+  if (saved && saved.pos > 0) {
+    session = saved;
+    renderQuiz();
+    toast('已恢复上次刷题进度（第 ' + (saved.pos + 1) + ' / ' + saved.order.length + ' 题）');
+    return;
+  }
+
   if (mode === 'wrong') {
     const wrong = await ServerAPI.getWrong();
     const items = wrong.items.filter(w => w.setId === setId);
@@ -1167,6 +1198,7 @@ async function startSessionMode(setId, mode) {
   else if (mode === 'daily') order = shuffle(Array.from({ length: total }, (_, i) => i)).slice(0, Math.min(10, total));
   else order = shuffle(Array.from({ length: total }, (_, i) => i));
   session = { setId, setTitle: set.title, questionCount: total, order, pos: 0, correct: 0, answered: 0, wrongIdx: [], mode, done: false };
+  saveQuizSession();
   renderQuiz();
 }
 
@@ -1190,6 +1222,7 @@ function renderQuiz() {
       '<div class="quiz-head"><div class="qh-title"><h2>' + esc(s.setTitle) + '</h2>' +
       '<div class="qh-sub">' + modeLabel + (s.mode === 'wrong' ? ' · 答对自动移出错题本' : ' · A-D 选答案 / 空格看答案 / 回车下一题 / F 收藏 / Esc 退出') + '</div></div>' +
       '<button class="btn btn-ghost btn-sm" data-action="quiz-quit">退出</button></div>' +
+      (s.pos > 0 ? '<div style="display:flex;gap:8px;margin-bottom:4px"><button class="btn btn-ghost btn-sm" data-action="quiz-reset">↺ 重新开始</button></div>' : '') +
       '<div class="quiz-progress"><div class="bar"><i style="width:' + (s.pos / total * 100) + '%"></i></div>' +
       '<div class="pq"><small>已答对</small> ' + s.correct + ' <small>/</small> ' + total + '</div></div>' +
       '<div id="quiz-body"></div>' +
@@ -1342,6 +1375,7 @@ function submitMulti() {
   const correct = selSet.length === answerSet.length && hit === answerSet.length;
   s.answered++;
   if (correct) s.correct++; else s.wrongIdx.push(q.id);
+  saveQuizSession();
   ServerAPI.answer(s.setId, q.id, correct).catch(() => {});
   refreshWrongBadge();
   if (correct && s.mode === 'wrong') ServerAPI.learnedWrong(q.id).catch(() => {});
@@ -1411,6 +1445,7 @@ function markKnown(v) {
   const isCorrect = v === 1;
   if (isCorrect) { s.correct++; if (s.mode === 'wrong') ServerAPI.learnedWrong(q.id).catch(() => {}); }
   else s.wrongIdx.push(q.id);
+  saveQuizSession();
   ServerAPI.answer(s.setId, q.id, isCorrect, s._userAnswer || '').catch(() => {});
   refreshWrongBadge();
   const zone = $('#q-answer-zone');
@@ -1424,6 +1459,7 @@ function markKnown(v) {
 function nextQuestion() {
   const s = session;
   s.pos++;
+  saveQuizSession();
   renderQuizBody();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -1433,6 +1469,7 @@ function renderQuizResult() {
   const total = s.answered;
   const acc = total > 0 ? Math.round(s.correct / total * 100) : 0;
   s.done = true;
+  clearQuizSession();
   const wrongCount = s.wrongIdx.length;
   const body = $('#quiz-body');
   body.innerHTML = '' +
