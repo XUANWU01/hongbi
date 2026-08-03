@@ -180,6 +180,7 @@ const ServerAPI = {
   /* ---------- 用户 ---------- */
   getProfile() { return apiGet('api/user/profile'); },
   updateProfile(data) { return apiPut('api/user/profile', data); },
+  changePassword(oldPassword, newPassword) { return apiPut('api/user/password', { oldPassword, newPassword }); },
 
   /* ---------- 通知 ---------- */
   getNotifications() { return apiGet('api/notifications'); },

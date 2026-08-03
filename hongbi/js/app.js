@@ -563,14 +563,24 @@ document.addEventListener('click', async e => {
       const overlay = openModal(
         '<div class="modal-head"><h3>修改密码</h3><button class="modal-close" data-close-modal aria-label="关闭">✕</button></div>' +
         '<div class="modal-body"><div class="form-grid">' +
-          '<div class="field"><label for="cp-old">旧密码</label><input id="cp-old" type="password" placeholder="当前密码"></div>' +
-          '<div class="field"><label for="cp-new">新密码</label><input id="cp-new" type="password" placeholder="至少 6 位"></div>' +
-          '<div class="field"><label for="cp-new2">确认新密码</label><input id="cp-new2" type="password" placeholder="再次输入"></div>' +
+          '<div class="field"><label for="cp-old">旧密码</label><div style="display:flex;gap:4px"><input id="cp-old" type="password" placeholder="当前密码" style="flex:1"><button class="btn btn-ghost btn-sm pw-toggle" data-target="cp-old" type="button">👁</button></div></div>' +
+          '<div class="field"><label for="cp-new">新密码</label><div style="display:flex;gap:4px"><input id="cp-new" type="password" placeholder="至少 6 位" style="flex:1"><button class="btn btn-ghost btn-sm pw-toggle" data-target="cp-new" type="button">👁</button></div></div>' +
+          '<div class="field"><label for="cp-new2">确认新密码</label><div style="display:flex;gap:4px"><input id="cp-new2" type="password" placeholder="再次输入" style="flex:1"><button class="btn btn-ghost btn-sm pw-toggle" data-target="cp-new2" type="button">👁</button></div></div>' +
           '<div id="cp-msg" style="font-size:12.5px;color:var(--red);min-height:18px"></div>' +
         '</div></div>' +
         '<div class="modal-actions"><button class="btn btn-ghost" data-close-modal>取消</button>' +
           '<button class="btn btn-primary" id="cp-save">修改密码</button></div>'
       );
+      // 密码显隐切换
+      overlay.querySelectorAll('.pw-toggle').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const input = document.getElementById(btn.dataset.target);
+          if (input) {
+            input.type = input.type === 'password' ? 'text' : 'password';
+            btn.textContent = input.type === 'password' ? '👁' : '🙈';
+          }
+        });
+      });
       $('#cp-save').addEventListener('click', async () => {
         const oldPwd = $('#cp-old').value;
         const newPwd = $('#cp-new').value;
