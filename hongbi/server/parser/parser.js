@@ -51,7 +51,7 @@ module.exports = (() => {
   /* 行内答案提取：题干行内带「。答案是：C」时拆出（判断题支持 正确/错误；分号分隔如 答案是; ABC 也支持） */
   function extractInlineAnswer(t) {
     const str = String(t == null ? '' : t);
-    const m = str.match(/(.+?)(?:答案(?:是|为)?\s*[:：;；]\s*)([A-Fa-f][A-Fa-f,，、\s]{0,14}|正确|错误|对|错)$/);
+    const m = str.match(/(.+?)(?:答案(?:是|为)?\s*[:：;；]\s*)([A-Fa-f][A-Fa-f,，、\s]{0,20}|正确|错误|对|错)$/);
     if (!m) return null;
     return { q: clean(m[1]), answer: clean(m[2]) };
   }
@@ -64,7 +64,7 @@ module.exports = (() => {
     let m;
     while ((m = re.exec(str)) !== null) {
       const inner = m[1].trim();
-      if (/^[A-Fa-f][A-Fa-f,，、\s]{0,10}$/.test(inner)) {
+      if (/^[A-Fa-f][A-Fa-f,，、\s]{0,20}$/.test(inner)) {
         const answer = clean(inner);
         const q = clean(str.slice(0, m.index) + ' ' + str.slice(m.index + m[0].length)).replace(/\s+/g, ' ').trim();
         if (q.length >= 2) return { q, answer };
