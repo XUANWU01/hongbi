@@ -8,7 +8,7 @@ const path = require('path');
 const multer = require('multer');
 const JSZip = require('jszip');
 const { db } = require('../db.js');
-const { authRequired, uid, rateLimitUpload } = require('../auth.js');
+const { authRequired, requireUser, uid, rateLimitUpload } = require('../auth.js');
 const { parsePipeline } = require('../parser/pipeline.js');
 
 const MAX_MB = Number(process.env.MAX_UPLOAD_MB || 100);
@@ -91,7 +91,7 @@ function jobToJSON(job) {
 
 function registerUploadRoutes(app) {
   // 单文件上传（速率限制已屏蔽，后续按需启用）
-  app.post('/api/upload', authRequired, upload.single('file'), (req, res) => {
+  app.post('/api/upload', authRequired, requireUser, upload.single('file'), (req, res) => {
     if (!req.file) { res.status(400).json({ error: '未收到文件' }); return; }
     const jobId = createJob(req.auth, req.file.originalname, req.file.path);
     setImmediate(() => runJob(jobId));
@@ -99,7 +99,7 @@ function registerUploadRoutes(app) {
   }, (err, req, res, next) => { res.status(400).json({ error: err.message || '上传失败' }); });
 
   // 批量上传（多文件，一次最多 20 个）
-  app.post('/api/uploads', authRequired, uploadMulti.array('files', 20), (req, res) => {
+  app.post('/api/uploads', authRequired, requireUser, uploadMulti.array('files', 20), (req, res) => {
     if (!req.files || !req.files.length) { res.status(400).json({ error: '未收到有效文件' }); return; }
     const jobs = req.files.map(f => {
       const jobId = createJob(req.auth, f.originalname, f.path);
@@ -141,7 +141,7 @@ function registerUploadRoutes(app) {
   });
 
   // ZIP 上传解析
-  app.post('/api/upload/zip', authRequired, upload.single('file'), async (req, res) => {
+  app.post('/api/upload/zip', authRequired, requireUser, upload.single('file'), async (req, res) => {
     if (!req.file || !/zip$/i.test(req.file.originalname || '')) { res.status(400).json({ error: '请上传 ZIP 文件' }); return; }
     try {
       const buf = fs.readFileSync(req.file.path);

@@ -571,6 +571,11 @@ async function renderOfficial() {
    ============================================================ */
 function renderUpload() {
   const view = $('#view');
+  // 访客/设备用户：引导注册
+  if (ServerAPI.identity && ServerAPI.identity.type === 'device') {
+    view.innerHTML = '<div class="hero" style="min-height:50vh;display:flex;align-items:center;justify-content:center;flex-direction:column"><h2>🔒 需要注册账号</h2><p style="color:var(--ink-2);margin:8px 0 20px">上传题库功能仅限注册用户使用，访客模式不支持。</p><button class="btn btn-primary" data-action="open-auth">立即登录 / 注册</button></div>';
+    return;
+  }
   const stepsHtml = n => {
     const steps = [
       { t: '选择文件', s: n > 1 ? 'done' : 'active' },

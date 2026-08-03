@@ -104,6 +104,14 @@ function requireRole(...roles) {
   };
 }
 
+/** 必须已注册用户，拒绝设备和访客 */
+function requireUser(req, res, next) {
+  if (!req.auth || req.auth.ownerType !== 'user') {
+    res.status(403).json({ error: '请先注册账号后再上传题库' }); return;
+  }
+  next();
+}
+
 /* ---------- 路由 ---------- */
 function registerAuthRoutes(app) {
   app.post('/api/auth/device', (req, res) => {
@@ -273,4 +281,4 @@ function registerAuthRoutes(app) {
   });
 }
 
-module.exports = { registerAuthRoutes, authRequired, requireRole, rateLimitUpload, uid, ADMIN_KEY };
+module.exports = { registerAuthRoutes, authRequired, requireRole, requireUser, rateLimitUpload, uid, ADMIN_KEY };
