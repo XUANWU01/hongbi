@@ -54,12 +54,13 @@ async function render() {
 async function refreshWrongBadge() {
   const badge = $('#wrong-badge');
   if (!badge) return;
+  if (!ServerAPI.identity) { badge.hidden = true; return; }
   try {
     const data = await ServerAPI.getWrong();
     const n = data.total || 0;
     badge.hidden = n === 0;
     badge.textContent = n > 99 ? '99+' : n;
-  } catch (e) { /* 静默 */ }
+  } catch (e) { badge.hidden = true; }
 }
 
 async function refreshNotifBadge() {
@@ -85,7 +86,8 @@ async function refreshNotifBadge() {
 async function refreshReviewBadge() {
   const badge = $('#review-badge');
   const adminNav = $('#admin-nav');
-  if (!badge || !adminNav || adminNav.hidden) return;
+  if (!badge || !adminNav || adminNav.hidden) { if (badge) badge.hidden = true; return; }
+  if (!ServerAPI.isAdmin()) { badge.hidden = true; return; }
   try {
     const data = await ServerAPI.getReviews('pending');
     const n = (data.items || []).length;
@@ -132,6 +134,11 @@ function refreshIdentityUI() {
   } else {
     btn.textContent = '登录';
     btn.classList.remove('is-user');
+    if (adminNav) adminNav.hidden = true;
+    if ($('#notif-btn')) $('#notif-btn').hidden = true;
+    if ($('#wrong-badge')) $('#wrong-badge').hidden = true;
+    if ($('#review-badge')) $('#review-badge').hidden = true;
+    if ($('#notif-badge')) $('#notif-badge').hidden = true;
   }
 }
 
