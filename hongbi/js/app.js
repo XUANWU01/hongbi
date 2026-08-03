@@ -442,6 +442,11 @@ document.addEventListener('click', async e => {
       catch (e) { toast('升级失败：' + e.message, 'err'); }
       break;
     }
+    case 'upgrade-official-quick': {
+      try { await ServerAPI.upgradeOfficialSet(t.dataset.id); toast('「' + esc(t.dataset.title) + '」已升为官方 ✓'); render(); }
+      catch (e) { toast('升级失败：' + e.message, 'err'); }
+      break;
+    }
     case 'downgrade-official': {
       const ok = await confirmModal({ title: '降为社区题库', body: '<p class="m-line">将官方题库「' + esc(t.dataset.title) + '」降回社区？</p><p style="font-size:12px;color:var(--ink-3)">降级后恢复为普通公开题库，不再显示为官方精选。</p>', okText: '确认降级', danger: true });
       if (!ok) break;

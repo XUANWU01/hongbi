@@ -192,6 +192,24 @@ function registerAdminRoutes(app) {
     res.json({ ok: true, message: '已降为社区题库' });
   });
 
+  // 可升级题库列表（社区/待审，供官方页浏览升级）
+  app.get('/api/admin/upgradeable', authRequired, requireRole('superadmin'), (req, res) => {
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const size = Math.min(100, Math.max(1, Number(req.query.size) || 20));
+    const keyword = String(req.query.keyword || '').trim();
+    let where = "(s.source='public' OR s.source='pending')";
+    const params = [];
+    if (keyword) { where += " AND (s.title LIKE ? OR s.category LIKE ?)"; params.push('%' + keyword + '%', '%' + keyword + '%'); }
+    const total = db.prepare('SELECT COUNT(*) AS n FROM sets s WHERE ' + where).get(...params).n;
+    const rows = db.prepare('SELECT * FROM sets s WHERE ' + where + ' ORDER BY s.created_at DESC LIMIT ? OFFSET ?')
+      .all(...params, size, (page - 1) * size);
+    res.json({
+      items: rows.map(r => ({ id: r.id, title: r.title, desc: r.desc, category: r.category,
+        source: r.source, questionCount: qCount(r.id), owner_id: r.owner_id, createdAt: r.created_at })),
+      total, page, size
+    });
+  });
+
   // 删除官方题库
   app.delete('/api/admin/official/:id', authRequired, requireRole('superadmin'), (req, res) => {
     const r = db.prepare("SELECT * FROM sets WHERE id = ? AND source='official'").get(req.params.id);

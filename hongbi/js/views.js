@@ -589,14 +589,17 @@ async function renderOfficial() {
               '<button class="btn btn-sm btn-danger" data-action="delete-official" data-id="' + s.id + '" data-title="' + escAttr(s.title) + '">删除</button>' +
             '</div></div>').join('')
         : emptyState('📚', '还没有官方题库', '上传文件后在此创建官方精选题库，或从「审核队列」直接升级为官方', '')) +
-      // 升级已有题库为官方
-      '<div class="panel-card" style="margin-top:16px"><h3>⬆ 升级社区题库为官方</h3>' +
-      '<p style="font-size:12.5px;color:var(--ink-3);margin-bottom:12px">直接在题库广场或我的题库中<strong>点击题库ID</strong>复制（如 smsbxxx），粘贴到下方即可升级。仅公开/待审核题库可升。</p>' +
-      '<div class="form-grid">' +
-        '<div class="field"><label for="clone-id">题库 ID（点卡片上灰色ID自动复制）</label><input id="clone-id" placeholder="smxxxxx"></div>' +
-        '<div><button class="btn btn-primary" data-action="upgrade-official-id">升级为官方题库</button></div>' +
-      '</div></div>';
-  } catch (e) { view.innerHTML = emptyState('✗', '加载失败', e.message, '<button class="btn btn-primary btn-sm" data-action="retry">重试</button>'); }
+            (upgradeable && upgradeable.length
+        ? '<div class="section-head" style="margin-top:24px"><div><h2>可升级题库（' + upTotal + '）</h2>' +
+            '<div class="section-sub">一键升级社区公开/待审核题库为官方精选</div></div></div>' +
+            '<div style="max-height:400px;overflow-y:auto;margin-top:8px">' +
+            upgradeable.map(r => '<div class="list-row">' +
+              '<div class="row-main"><div class="row-title">' + esc(r.title) + '</div>' +
+              '<div class="row-sub">' + r.questionCount + ' 题 · ' + esc(r.category) + ' · ' + (r.source === 'pending' ? '⏳ 待审' : '✓ 已公开') + '</div></div>' +
+              '<div class="row-actions"><button class="btn btn-sm btn-primary" data-action="upgrade-official-quick" data-id="' + r.id + '" data-title="' + escAttr(r.title) + '">升为官方</button></div>' +
+            '</div>').join('') + '</div>'
+        : '<div class="section-head" style="margin-top:24px"><div><h2>可升级题库</h2>' +
+            '<div class="section-sub">没有可升级的社区题库</div></div></div>' + emptyState('✓', '所有题库都已是官方', '', ''))  } catch (e) { view.innerHTML = emptyState('✗', '加载失败', e.message, '<button class="btn btn-primary btn-sm" data-action="retry">重试</button>'); }
 }
 
 /* ============================================================
