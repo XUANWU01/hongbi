@@ -594,7 +594,19 @@ document.addEventListener('click', async e => {
       const idx = +t.dataset.idx;
       uploadState.editedQuestions.splice(idx, 1);
       toast('已删除第 ' + (idx + 1) + ' 题');
-      openQuestionEditor(); // 刷新编辑器
+      openQuestionEditor();
+      break;
+    }
+    case 'editor-merge': {
+      if (!uploadState || !uploadState.editedQuestions) break;
+      const idx = +t.dataset.idx;
+      if (idx <= 0) break;
+      const qs = uploadState.editedQuestions;
+      // 合并到上一题：将当前题的题干追加到上一题
+      qs[idx - 1].q = (qs[idx - 1].q || '') + ' ' + (qs[idx].q || '');
+      qs.splice(idx, 1);
+      toast('已合并到第 ' + idx + ' 题');
+      openQuestionEditor();
       break;
     }
     case 'upload-reset': uploadState = null; render(); break;

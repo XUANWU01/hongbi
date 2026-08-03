@@ -852,6 +852,7 @@ function openQuestionEditor() {
           '<span class="edit-q-num">' + (idx + 1) + '</span>' +
           '<span class="chip ' + (q.type === 'multi' ? 'chip-pending' : q.type === 'choice' ? 'chip-public' : 'chip-private') + '">' + (q.type === 'multi' ? '多选' : q.type === 'choice' ? '单选' : '简答') + '</span>' +
           '<button class="btn btn-sm btn-danger" data-action="editor-del" data-idx="' + idx + '" style="margin-left:auto">删除</button>' +
+          (idx > 0 ? '<button class="btn btn-sm btn-ghost" data-action="editor-merge" data-idx="' + idx + '" style="margin-left:4px">合并到上一题</button>' : '') +
         '</div>' +
         '<div class="field"><label>题干</label><input class="eq-q" data-idx="' + idx + '" value="' + esc(q.q) + '"></div>' +
         (isChoice

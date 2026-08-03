@@ -13,9 +13,9 @@ function parseBlocks(document, options = {}) {
     explanation: q.explanation || '', type: q.type || 'text',
     confidence: computeConfidence(q), issues: detectIssues(q), raw: q.q, media: []
   }));
-  // 保留旧防线（尾块匹配），但新增题型感知匹配
-  questions = mergeAnswerKeys(questions);
+  // 先题型感知匹配（更精准），再尾块兜底
   questions = typeAwareMatch(questions);
+  questions = mergeAnswerKeys(questions);
   return { questions, unreconciledLines: [] };
 }
 
