@@ -611,9 +611,32 @@ document.addEventListener('click', async e => {
     }
     case 'editor-add': {
       if (!uploadState || !uploadState.editedQuestions) break;
-      uploadState.editedQuestions.push({ q: '新题目', options: [], answer: '', explanation: '', type: 'text' });
-      toast('已添加新题目');
-      openQuestionEditor();
+      // 弹出选题型
+      const overlay = openModal(
+        '<div class="modal-head"><h3>添加题目 · 选择题型</h3><button class="modal-close" data-close-modal aria-label="关闭">✕</button></div>' +
+        '<div class="modal-body"><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">' +
+          '<button class="btn btn-primary" data-add-type="choice" style="padding:14px">📝 单选题<br><small style="opacity:.6">4 选项可编辑</small></button>' +
+          '<button class="btn btn-ghost" data-add-type="multi" style="padding:14px">📋 多选题<br><small style="opacity:.6">4 选项可编辑</small></button>' +
+          '<button class="btn btn-ghost" data-add-type="fill" style="padding:14px">✏️ 填空题<br><small style="opacity:.6">无选项</small></button>' +
+          '<button class="btn btn-ghost" data-add-type="tf" style="padding:14px">⚖️ 判断题<br><small style="opacity:.6">无选项</small></button>' +
+          '<button class="btn btn-ghost" data-add-type="text" style="padding:14px;grid-column:1/-1">📄 简答题<br><small style="opacity:.6">无选项</small></button>' +
+        '</div></div>'
+      );
+      const btns = overlay.querySelectorAll('[data-add-type]');
+      btns.forEach(b => b.addEventListener('click', () => {
+        const type = b.dataset.addType;
+        const isChoice = type === 'choice' || type === 'multi';
+        const q = {
+          q: '新题目',
+          options: isChoice ? ['选项 A', '选项 B', '选项 C', '选项 D'] : [],
+          answer: '', explanation: '',
+          type: type === 'multi' ? 'multi' : type === 'fill' || type === 'tf' ? 'text' : type
+        };
+        uploadState.editedQuestions.push(q);
+        closeModal();
+        toast('已添加' + ({ choice: '单选题', multi: '多选题', fill: '填空题', tf: '判断题', text: '简答题' })[type]);
+        openQuestionEditor();
+      }));
       break;
     }
     case 'upload-reset': uploadState = null; render(); break;
