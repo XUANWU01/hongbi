@@ -14,7 +14,7 @@ function parseHash() {
 }
 
 function setActiveNav(path) {
-  const map = { home:'home', library:'library', mine:'mine', wrong:'wrong', fav:'fav', upload:'upload', admin:'admin', audit:'admin', parser:'admin', official:'admin', users:'admin' };
+  const map = { home:'home', library:'library', mine:'mine', wrong:'wrong', fav:'fav', upload:'upload', admin:'admin', parser:'admin', backend:'backend', audit:'backend', users:'backend', official:'backend' };
   $$('#mainnav a, .bottom-nav a').forEach(a => a.classList.toggle('active', a.dataset.nav === map[path]));
 }
 
@@ -35,6 +35,7 @@ async function render() {
       case 'parser': await renderParserStats(); break;
       case 'official': await renderOfficial(); break;
       case 'users': await renderUsers(); break;
+      case 'backend': await renderBackend(); break;
       case 'profile': await renderProfile(); break;
       case 'quiz': await renderQuizView(param, param2); return;
       default: await renderHome(); break;
@@ -129,12 +130,15 @@ function refreshIdentityUI() {
     }
     if (conn) { conn.classList.add('on'); conn.title = '已连接服务器'; }
     if (adminNav) { adminNav.hidden = !ServerAPI.isAdmin(); }
+    const backendNav = $('#backend-nav');
+    if (backendNav) backendNav.hidden = !(ServerAPI.identity && ServerAPI.identity.role === 'superadmin');
     refreshNotifBadge();
     refreshReviewBadge();
   } else {
     btn.textContent = '登录';
     btn.classList.remove('is-user');
     if (adminNav) adminNav.hidden = true;
+    if ($('#backend-nav')) $('#backend-nav').hidden = true;
     if ($('#notif-btn')) $('#notif-btn').hidden = true;
     if ($('#wrong-badge')) $('#wrong-badge').hidden = true;
     if ($('#review-badge')) $('#review-badge').hidden = true;

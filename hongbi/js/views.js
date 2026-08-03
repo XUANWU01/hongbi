@@ -317,9 +317,6 @@ async function renderAdmin() {
   const items = data.items;
   const subNav = '<div class="admin-subnav">' +
     '<a href="#/admin" class="active">审核队列</a>' +
-    (ServerAPI.identity && ServerAPI.identity.role === 'superadmin' ? '<a href="#/audit">审计日志</a>' : '') +
-    (ServerAPI.identity && ServerAPI.identity.role === 'superadmin' ? '<a href="#/users">用户管理</a>' : '') +
-    (ServerAPI.identity && ServerAPI.identity.role === 'superadmin' ? '<a href="#/official">官方题库</a>' : '') +
     '<a href="#/parser">解析质量</a>' +
     '</div>';
   view.innerHTML = '<div class="section-head" style="margin-top:6px"><div><h2>审核队列</h2>' +
@@ -365,7 +362,7 @@ async function renderAudit() {
       '<div class="section-sub">记录所有关键操作：上传、审核、删除、编辑、回滚等</div></div>' +
       '<span class="chip chip-official">共 ' + data.total + ' 条</span></div>' +
       '<div class="admin-subnav">' +
-        '<a href="#/admin">审核队列</a>' +
+        '<a href="#/backend">后台总览</a>' +
         '<a href="#/audit" class="active">审计日志</a>' +
         '<a href="#/users">用户管理</a>' +
         '<a href="#/official">官方题库</a>' +
@@ -385,9 +382,6 @@ async function renderParserStats() {
       '<div class="section-sub">上传解析任务总览：成功率、平均覆盖率、失败分布</div></div></div>' +
       '<div class="admin-subnav">' +
         '<a href="#/admin">审核队列</a>' +
-        (ServerAPI.identity && ServerAPI.identity.role === 'superadmin' ? '<a href="#/audit">审计日志</a>' : '') +
-        (ServerAPI.identity && ServerAPI.identity.role === 'superadmin' ? '<a href="#/users">用户管理</a>' : '') +
-        (ServerAPI.identity && ServerAPI.identity.role === 'superadmin' ? '<a href="#/official">官方题库</a>' : '') +
         '<a href="#/parser" class="active">解析质量</a>' +
       '</div>' +
       '<div class="stats-grid" style="margin-top:12px">' +
@@ -478,7 +472,7 @@ async function renderUsers() {
   if (!ServerAPI.isAdmin() || ServerAPI.identity.role !== 'superadmin') { toast('需要超级管理员权限', 'err'); location.hash = '#/home'; return; }
   view.innerHTML = loadingHtml('正在加载用户列表…');
   const subNav = '<div class="admin-subnav">' +
-    '<a href="#/admin">审核队列</a>' +
+    '<a href="#/backend">后台总览</a>' +
     '<a href="#/audit">审计日志</a>' +
     '<a href="#/users" class="active">用户管理</a>' +
     '<a href="#/official">官方题库</a>' +
@@ -514,6 +508,31 @@ async function renderUsers() {
 }
 
 /* ============================================================
+   后台管理总览（仅 superadmin）
+   ============================================================ */
+async function renderBackend() {
+  const view = $('#view');
+  if (!ServerAPI.isAdmin() || (ServerAPI.identity && ServerAPI.identity.role !== 'superadmin')) { toast('需要超级管理员权限', 'err'); location.replace('#/home'); return; }
+  view.innerHTML = '' +
+    '<div class="section-head" style="margin-top:6px"><div><h2>后台管理</h2>' +
+    '<div class="section-sub">超级管理员专属：审计追踪、用户管理、官方题库维护</div></div></div>' +
+    '<div class="grid-cards" style="margin-top:20px">' +
+      '<article class="set-card"><h3>📋 审计日志</h3>' +
+        '<p class="set-desc">追踪所有关键操作记录：上传、审核、角色变更、官方题库升级等</p>' +
+        '<a class="btn btn-primary btn-sm" href="#/audit">进入</a></article>' +
+      '<article class="set-card"><h3>👥 用户管理</h3>' +
+        '<p class="set-desc">查看所有注册用户，提升/降级管理员权限</p>' +
+        '<a class="btn btn-primary btn-sm" href="#/users">进入</a></article>' +
+      '<article class="set-card"><h3>📚 官方题库</h3>' +
+        '<p class="set-desc">创建、升级、降级官方精选题库，管理可升级题库列表</p>' +
+        '<a class="btn btn-primary btn-sm" href="#/official">进入</a></article>' +
+      '<article class="set-card"><h3>📊 解析质量</h3>' +
+        '<p class="set-desc">全局上传解析成功率、平均覆盖率统计</p>' +
+        '<a class="btn btn-primary btn-sm" href="#/parser">进入</a></article>' +
+    '</div>';
+}
+
+/* ============================================================
    官方精选题库管理（仅 superadmin）
    ============================================================ */
 async function renderOfficial() {
@@ -521,7 +540,7 @@ async function renderOfficial() {
   if (!ServerAPI.isAdmin() || ServerAPI.identity.role !== 'superadmin') { toast('需要超级管理员权限', 'err'); location.hash = '#/home'; return; }
   view.innerHTML = loadingHtml('正在加载官方题库…');
   const subNav = '<div class="admin-subnav">' +
-    '<a href="#/admin">审核队列</a>' +
+    '<a href="#/backend">后台总览</a>' +
     '<a href="#/audit">审计日志</a>' +
     '<a href="#/users">用户管理</a>' +
     '<a href="#/official" class="active">官方题库</a>' +
