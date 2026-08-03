@@ -281,7 +281,7 @@ module.exports = (() => {
     const RE_QMARK = /^(q|问|题目|题干)\s*[:：]\s*(.+)/i;
     const RE_AMARK = /^(?:(?:正确|参考|标准)?答案|answer|ans)(?:是|为)?\s*[:：;；]\s*(.+)/i;
     const RE_AMARK2 = /^【(?:正确|参考|标准)?答案】\s*(.+)/;
-    const RE_SECTION = /^(?:[一二三四五六七八九十]?[、]?)(?:单选|多选|判断|简答|填空|论述|选择)题\s*[\d，,、 ]*道?题?$/;
+    const RE_SECTION = /^(?:[一二三四五六七八九十]+[、.]?)?(?:单选|多选|判断|简答|填空|论述|选择|分析|综合|综合应用|案例|计算|实务)题\s*[\d，,、 ]*道?题?$/;
     const RE_NOISE = /^(学员专用|请勿外泄|微信公众|公众号|全国辅警|第[一二三四五六]部分|(?:一|二|三|四|五|六)、|考情分析|真题展示|辅警考试|材料\s*[:：]?$|[-——]?\s*\d+\s*[-—]?$|第\s*\d+\s*页)/;
     const RE_EMARK = /^(解析|解释|说明|explanation|note)\s*[:：]\s*(.+)/i;
     const RE_OPT   = /^([A-Fa-f])\s*[.、)）．]\s*(.+)/;
@@ -304,7 +304,16 @@ module.exports = (() => {
         cur.explanation = (cur.explanation ? cur.explanation + ' ' : '') + m[2];
         continue;
       }
-      if ((m = raw.match(RE_NUM))) { pushLineQ(clean(m[1])); continue; }
+      if ((m = raw.match(RE_NUM))) {
+        // 子点检测：如果上一题是文本型无选项，且新行是 <10 的短编号，可能为答案子点
+        const num = raw.match(/^\d{1,4}/)[0];
+        const n = parseInt(num, 10);
+        if (cur && (!cur.options || !cur.options.length) && n > 0 && n <= 20 && cur.type === 'text') {
+          cur.explanation = (cur.explanation ? cur.explanation + '\n' : '') + raw.trim();
+          continue;
+        }
+        pushLineQ(clean(m[1])); continue;
+      }
       if ((m = raw.match(RE_QMARK))) { pushLineQ(clean(m[2])); continue; }
       // 同行选项行（A.80 B.96 C.124 D.168 在一行）：整行拆成选项（优先于行首单选项）
       if (/^[A-Fa-f]\s*[.、)）．]/.test(raw) && ((raw.match(/[A-Fa-f]\s*[.、)）．]/g) || []).length >= 2)) {
