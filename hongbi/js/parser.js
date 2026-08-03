@@ -305,11 +305,16 @@ const PARSER = (() => {
         continue;
       }
       if ((m = raw.match(RE_NUM))) {
-        // 子点检测：如果上一题是文本型无选项，且新行是 <10 的短编号，可能为答案子点
-        const num = raw.match(/^\d{1,4}/)[0];
-        const n = parseInt(num, 10);
-        if (cur && (!cur.options || !cur.options.length) && n > 0 && n <= 20 && cur.type === 'text') {
-          cur.explanation = (cur.explanation ? cur.explanation + '\n' : '') + raw.trim();
+        // 子点检测：如果上一题是文本型无选项，且新行是 <100 的短编号，可能是答案/解析的子点
+        const numMatch = raw.match(/^\d{1,4}/);
+        const n = numMatch ? parseInt(numMatch[0], 10) : 0;
+        if (cur && (!cur.options || !cur.options.length) && n > 0 && n <= 99 && cur.type === 'text') {
+          // 如果已有解析内容（之前出现过 解析/分析/说明 标记），追加到解析；否则追加到答案
+          if (cur.explanation) {
+            cur.explanation = cur.explanation + '\n' + raw.trim();
+          } else {
+            cur.answer = cur.answer + '\n' + raw.trim();
+          }
           continue;
         }
         pushLineQ(clean(m[1])); continue;
