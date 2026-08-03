@@ -586,7 +586,6 @@ async function renderOfficial() {
             '<div class="row-sub">' + s.questionCount + ' 题 · ' + esc(s.category) + ' · ' + relTime(s.createdAt) + '</div></div>' +
             '<div class="row-actions">' +
               '<button class="btn btn-sm btn-ghost" data-action="downgrade-official" data-id="' + s.id + '" data-title="' + escAttr(s.title) + '">降为社区</button>' +
-              '<button class="btn btn-sm btn-ghost" data-action="downgrade-official" data-id="' + s.id + '" data-title="' + escAttr(s.title) + '">降为社区</button>' +
               '<button class="btn btn-sm btn-danger" data-action="delete-official" data-id="' + s.id + '" data-title="' + escAttr(s.title) + '">删除</button>' +
             '</div></div>').join('')
         : emptyState('📚', '还没有官方题库', '上传文件后在此创建官方精选题库，或从「审核队列」直接升级为官方', '')) +
