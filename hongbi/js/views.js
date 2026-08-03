@@ -310,10 +310,7 @@ async function renderFav() {
    ============================================================ */
 async function renderAdmin() {
   const view = $('#view');
-  if (!ServerAPI.isAdmin()) {
-    view.innerHTML = emptyState('⚑', '需要管理员权限', '只有管理员或超级管理员可以访问审核队列。', '');
-    return;
-  }
+  if (!ServerAPI.isAdmin()) { toast('需要管理员权限', 'err'); location.hash = '#/home'; return; }
   view.innerHTML = loadingHtml('正在加载审核队列…');
   let data;
   try { data = await ServerAPI.getReviews('pending'); } catch (e) { view.innerHTML = emptyState('✗', '加载失败', e.message, ''); return; }
@@ -348,10 +345,7 @@ async function renderAdmin() {
    ============================================================ */
 async function renderAudit() {
   const view = $('#view');
-  if (!ServerAPI.isAdmin() || ServerAPI.identity.role !== 'superadmin') {
-    view.innerHTML = emptyState('⚑', '需要超级管理员权限', '仅超级管理员可以查看操作审计日志。', '');
-    return;
-  }
+  if (!ServerAPI.isAdmin() || ServerAPI.identity.role !== 'superadmin') { toast('需要超级管理员权限', 'err'); location.hash = '#/home'; return; }
   view.innerHTML = loadingHtml('正在加载审计日志…');
   try {
     const data = await apiGet('api/admin/audit?page=1&size=30');
@@ -382,10 +376,7 @@ async function renderAudit() {
 
 async function renderParserStats() {
   const view = $('#view');
-  if (!ServerAPI.isAdmin()) {
-    view.innerHTML = emptyState('⚑', '需要管理员权限', '仅管理员可以查看解析质量看板。', '');
-    return;
-  }
+  if (!ServerAPI.isAdmin()) { toast('需要管理员权限', 'err'); location.hash = '#/home'; return; }
   view.innerHTML = loadingHtml('正在加载解析统计数据…');
   try {
     const stats = await apiGet('api/admin/stats/parser');
@@ -416,10 +407,7 @@ async function renderParserStats() {
    ============================================================ */
 async function renderProfile() {
   const view = $('#view');
-  if (ServerAPI.identity && ServerAPI.identity.type === 'device') {
-    view.innerHTML = '<div class="hero" style="min-height:50vh;display:flex;align-items:center;justify-content:center;flex-direction:column"><h2>👤 访客模式</h2><p style="color:var(--ink-2);margin:8px 0 20px">你当前以设备访客身份使用红笔，没有个人数据页。</p><button class="btn btn-primary" data-action="open-auth">登录或注册账号</button></div>';
-    return;
-  }
+  if (ServerAPI.identity && ServerAPI.identity.type === 'device') { toast('访客模式无个人信息页', 'err'); location.hash = '#/home'; setTimeout(() => openAuthModal(), 500); return; }
   try {
     view.innerHTML = loadingHtml('正在加载个人数据…');
     const data = await ServerAPI.getProfile();
@@ -487,10 +475,7 @@ async function renderProfile() {
    ============================================================ */
 async function renderUsers() {
   const view = $('#view');
-  if (!ServerAPI.isAdmin() || ServerAPI.identity.role !== 'superadmin') {
-    view.innerHTML = emptyState('⚑', '需要超级管理员权限', '仅超级管理员可以管理用户角色。', '<button class="btn btn-primary btn-sm" data-action="go-home">返回首页</button>');
-    return;
-  }
+  if (!ServerAPI.isAdmin() || ServerAPI.identity.role !== 'superadmin') { toast('需要超级管理员权限', 'err'); location.hash = '#/home'; return; }
   view.innerHTML = loadingHtml('正在加载用户列表…');
   const subNav = '<div class="admin-subnav">' +
     '<a href="#/admin">审核队列</a>' +
@@ -533,10 +518,7 @@ async function renderUsers() {
    ============================================================ */
 async function renderOfficial() {
   const view = $('#view');
-  if (!ServerAPI.isAdmin() || ServerAPI.identity.role !== 'superadmin') {
-    view.innerHTML = emptyState('⚑', '需要超级管理员权限', '仅超级管理员可以管理官方精选题库。', '<button class="btn btn-primary btn-sm" data-action="go-home">返回首页</button>');
-    return;
-  }
+  if (!ServerAPI.isAdmin() || ServerAPI.identity.role !== 'superadmin') { toast('需要超级管理员权限', 'err'); location.hash = '#/home'; return; }
   view.innerHTML = loadingHtml('正在加载官方题库…');
   const subNav = '<div class="admin-subnav">' +
     '<a href="#/admin">审核队列</a>' +
@@ -610,10 +592,7 @@ async function renderOfficial() {
 function renderUpload() {
   const view = $('#view');
   // 访客/设备用户：引导注册
-  if (ServerAPI.identity && ServerAPI.identity.type === 'device') {
-    view.innerHTML = '<div class="hero" style="min-height:50vh;display:flex;align-items:center;justify-content:center;flex-direction:column"><h2>🔒 需要注册账号</h2><p style="color:var(--ink-2);margin:8px 0 20px">上传题库功能仅限注册用户使用，访客模式不支持。</p><button class="btn btn-primary" data-action="open-auth">立即登录 / 注册</button></div>';
-    return;
-  }
+  if (ServerAPI.identity && ServerAPI.identity.type === 'device') { toast('请先注册账号后再上传题库', 'err'); location.hash = '#/home'; setTimeout(() => openAuthModal(), 500); return; }
   const stepsHtml = n => {
     const steps = [
       { t: '选择文件', s: n > 1 ? 'done' : 'active' },
