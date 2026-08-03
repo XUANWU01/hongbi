@@ -230,7 +230,7 @@ function setRow(s) {
     '<div class="row-main">' +
       '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span class="row-title">' + esc(s.title) + '</span>' + statusBadge + '</div>' +
       (s.reviewStatus === 'rejected' && s.reviewReason ? '<div class="row-sub" style="color:var(--red)">驳回原因：' + esc(s.reviewReason) + '</div>' : '') +
-      '<div class="row-sub">' + s.questionCount + ' 题 · ' + relTime(s.createdAt) + ' · <code style="font-size:10.5px;opacity:.6;cursor:pointer" title="点击复制题库ID" data-action="copy-id" data-id="' + s.id + '">' + s.id + '</code>' + '</div>' +
+      '<div class="row-sub">' + s.questionCount + ' 题 · ' + relTime(s.createdAt) + ' · <code style="font-size:10.5px;opacity:.6;cursor:pointer;border-bottom:1px dashed var(--line-hi)" title="点击复制题库ID用于升级" data-action="copy-id" data-id="' + s.id + '">' + s.id + '</code>' + '</div>' +
     '</div>' +
     '<div class="row-actions">' +
       '<button class="btn btn-sm btn-primary" data-action="start-quiz" data-id="' + s.id + '">刷题</button>' +
@@ -578,9 +578,9 @@ async function renderOfficial() {
         : emptyState('📚', '还没有官方题库', '上传文件后在此创建官方精选题库，或从「审核队列」直接升级为官方', '')) +
       // 升级已有题库为官方
       '<div class="panel-card" style="margin-top:16px"><h3>⬆ 升级社区题库为官方</h3>' +
-      '<p style="font-size:12.5px;color:var(--ink-3);margin-bottom:12px">直接修改题库标签为「官方」，不克隆不重复存储。也可在「审核队列」中使用。</p>' +
+      '<p style="font-size:12.5px;color:var(--ink-3);margin-bottom:12px">直接在题库广场或我的题库中<strong>点击题库ID</strong>复制（如 smsbxxx），粘贴到下方即可升级。仅公开/待审核题库可升。</p>' +
       '<div class="form-grid">' +
-        '<div class="field"><label for="clone-id">题库 ID</label><input id="clone-id" placeholder="从题库广场或我的题库复制ID"></div>' +
+        '<div class="field"><label for="clone-id">题库 ID（点卡片上灰色ID自动复制）</label><input id="clone-id" placeholder="smxxxxx"></div>' +
         '<div><button class="btn btn-primary" data-action="upgrade-official-id">升级为官方题库</button></div>' +
       '</div></div>';
   } catch (e) { view.innerHTML = emptyState('✗', '加载失败', e.message, '<button class="btn btn-primary btn-sm" data-action="retry">重试</button>'); }

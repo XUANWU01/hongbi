@@ -434,7 +434,8 @@ document.addEventListener('click', async e => {
     }
     case 'upgrade-official-id': {
       const setId = $('#clone-id')?.value.trim();
-      if (!setId) { toast('请输入题库 ID', 'err'); break; }
+      if (!setId) { toast('请输入题库 ID（从卡片上灰色ID点击复制）', 'err'); break; }
+      if (!/^sm/.test(setId)) { toast('无效的题库 ID（应以 sm 开头，请从卡片上点击复制）', 'err'); break; }
       try { await ServerAPI.upgradeOfficialSet(setId); toast('已升级为官方题库 ✓'); render(); }
       catch (e) { toast('升级失败：' + e.message, 'err'); }
       break;
