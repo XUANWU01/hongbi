@@ -1202,6 +1202,7 @@ async function renderQuizView(setId, mode) {
       '<button class="mode-card" data-action="start-mode" data-mode="order" data-id="' + setId + '"><span class="mode-icon">➡</span><b>顺序刷</b><p>按题目顺序一题一题过</p></button>' +
       '<button class="mode-card" data-action="start-mode" data-mode="random" data-id="' + setId + '"><span class="mode-icon">⚄</span><b>随机刷</b><p>打乱顺序，全部题目</p></button>' +
       '<button class="mode-card" data-action="start-mode" data-mode="daily" data-id="' + setId + '"><span class="mode-icon">◔</span><b>每日一练</b><p>随机抽 ' + Math.min(10, set.questionCount) + ' 题热身</p></button>' +
+      '<button class="mode-card" data-action="start-mode" data-mode="timed" data-id="' + setId + '"><span class="mode-icon">⏱</span><b>限时刷</b><p>全部题目 · 顶部计时 · 检验速度</p></button>' +
     '</div></div></div>';
 }
 
@@ -1213,9 +1214,11 @@ async function startSessionMode(setId, mode) {
   quizCache[setId] = {};
   let order;
   if (mode === 'order') order = Array.from({ length: total }, (_, i) => i);
+  else if (mode === 'timed') order = Array.from({ length: total }, (_, i) => i);
   else if (mode === 'daily') order = shuffle(Array.from({ length: total }, (_, i) => i)).slice(0, Math.min(10, total));
   else order = shuffle(Array.from({ length: total }, (_, i) => i));
-  session = { setId, setTitle: set.title, questionCount: total, order, pos: 0, correct: 0, answered: 0, wrongIdx: [], mode, done: false };
+  session = { setId, setTitle: set.title, questionCount: total, order, pos: 0, correct: 0, answered: 0, wrongIdx: [], mode, done: false, startTime: Date.now() };
+  if (mode === 'timed') startQuizTimer();
   saveQuizSession();
   renderQuiz();
 }
@@ -1234,11 +1237,12 @@ function renderQuiz() {
   const view = $('#view');
   const s = session;
   const total = s.order.length;
-  const modeLabel = s.mode === 'wrong' ? '错题专项' : s.mode === 'daily' ? '每日一练' : s.mode === 'order' ? '顺序刷' : '随机刷';
+  const modeLabel = s.mode === 'wrong' ? '错题专项' : s.mode === 'daily' ? '每日一练' : s.mode === 'order' ? '顺序刷' : s.mode === 'timed' ? '限时刷' : '随机刷';
+  const timerH = s.mode === 'timed' ? '<span style="color:var(--cyan);margin-left:10px" id="quiz-timer">⏱ 00:00</span>' : '';
   view.innerHTML = '' +
     '<div class="quiz-wrap">' +
       '<div class="quiz-head"><div class="qh-title"><h2>' + esc(s.setTitle) + '</h2>' +
-      '<div class="qh-sub">' + modeLabel + (s.mode === 'wrong' ? ' · 答对自动移出错题本' : ' · A-D 选答案 / 空格看答案 / 回车下一题 / F 收藏 / Esc 退出') + '</div></div>' +
+      '<div class="qh-sub">' + modeLabel + timerH + (s.mode === 'wrong' ? ' · 答对自动移出错题本' : ' · A-D 选答案 / 空格看答案 / 回车下一题 / F 收藏 / Esc 退出') + '</div></div>' +
       '<button class="btn btn-ghost btn-sm" data-action="quiz-quit">退出</button></div>' +
       (s.pos > 0 ? '<div style="display:flex;gap:8px;margin-bottom:4px"><button class="btn btn-ghost btn-sm" data-action="quiz-reset">↺ 重新开始</button></div>' : '') +
       '<div class="quiz-progress"><div class="bar"><i style="width:' + (s.pos / total * 100) + '%"></i></div>' +
@@ -1472,6 +1476,19 @@ function markKnown(v) {
     zone.insertAdjacentHTML('beforeend', '<div class="q-feedback ' + (isCorrect ? 'ok' : 'bad') + '" style="margin-top:12px">' + (isCorrect ? '✓ 已掌握' : '✗ 已收入错题本') + '</div>');
     actions.innerHTML = '<button class="btn btn-primary" data-action="next">' + (s.pos >= s.order.length - 1 ? '查看成绩' : '下一题 →') + '</button>';
   }
+}
+
+let quizTimerInterval = null;
+function startQuizTimer() {
+  if (quizTimerInterval) clearInterval(quizTimerInterval);
+  quizTimerInterval = setInterval(() => {
+    const el = document.getElementById('quiz-timer');
+    if (!el || !session || session.done) { clearInterval(quizTimerInterval); return; }
+    const sec = Math.floor((Date.now() - session.startTime) / 1000);
+    const m = String(Math.floor(sec / 60)).padStart(2, '0');
+    const s = String(sec % 60).padStart(2, '0');
+    el.textContent = '⏱ ' + m + ':' + s;
+  }, 1000);
 }
 
 function nextQuestion() {
