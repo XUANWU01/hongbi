@@ -573,17 +573,15 @@ async function renderOfficial() {
             '<div class="row-main"><div class="row-title">' + esc(s.title) + '</div>' +
             '<div class="row-sub">' + s.questionCount + ' 题 · ' + esc(s.category) + ' · ' + relTime(s.createdAt) + '</div></div>' +
             '<div class="row-actions">' +
-              '<button class="btn btn-sm btn-ghost" data-action="clone-official" data-id="' + s.id + '" data-title="' + escAttr(s.title) + '">复制为官方</button>' +
               '<button class="btn btn-sm btn-danger" data-action="delete-official" data-id="' + s.id + '" data-title="' + escAttr(s.title) + '">删除</button>' +
             '</div></div>').join('')
-        : emptyState('📚', '还没有官方题库', '上传文件后在此创建官方精选题库', '')) +
-      // 克隆已有题库（从用户贡献或既有题库）
-      '<div class="panel-card" style="margin-top:16px"><h3>📋 从已有题库克隆</h3>' +
+        : emptyState('📚', '还没有官方题库', '上传文件后在此创建官方精选题库，或从「审核队列」直接升级为官方', '')) +
+      // 升级已有题库为官方
+      '<div class="panel-card" style="margin-top:16px"><h3>⬆ 升级社区题库为官方</h3>' +
+      '<p style="font-size:12.5px;color:var(--ink-3);margin-bottom:12px">直接修改题库标签为「官方」，不克隆不重复存储。也可在「审核队列」中使用。</p>' +
       '<div class="form-grid">' +
-        '<div class="field"><label for="clone-id">题库 ID（从题库广场或我的题库获取）</label><input id="clone-id" placeholder="如：smxxxxx"></div>' +
-        '<div class="field"><label for="clone-title">官方标题（可选，默认沿用源标题）</label><input id="clone-title" maxlength="40" placeholder="留空=沿用原题名"></div>' +
-        '<div class="field"><label for="clone-cat">分类</label><select id="clone-cat">' + CATEGORIES.map(c => '<option>' + c + '</option>').join('') + '</select></div>' +
-        '<div><button class="btn btn-primary" data-action="do-clone-official" style="width:100%">克隆为官方题库</button></div>' +
+        '<div class="field"><label for="clone-id">题库 ID</label><input id="clone-id" placeholder="从题库广场或我的题库复制ID"></div>' +
+        '<div><button class="btn btn-primary" data-action="upgrade-official-id">升级为官方题库</button></div>' +
       '</div></div>';
   } catch (e) { view.innerHTML = emptyState('✗', '加载失败', e.message, '<button class="btn btn-primary btn-sm" data-action="retry">重试</button>'); }
 }

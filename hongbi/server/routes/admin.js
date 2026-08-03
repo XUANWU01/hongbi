@@ -176,24 +176,6 @@ function registerAdminRoutes(app) {
   });
 
   // 从已有题库复制为官方题库
-  app.post('/api/admin/official/clone', authRequired, requireRole('superadmin'), (req, res) => {
-    const { setId, title, category } = req.body || {};
-    if (!setId) { res.status(400).json({ error: '缺少源题库 ID' }); return; }
-    const src = db.prepare('SELECT * FROM sets WHERE id = ?').get(setId);
-    if (!src) { res.status(404).json({ error: '源题库不存在' }); return; }
-    const qs = db.prepare('SELECT * FROM questions WHERE set_id = ? ORDER BY idx ASC').all(src.id);
-    if (!qs.length) { res.status(400).json({ error: '源题库无题目' }); return; }
-    const newId = uid('s');
-    const now = Date.now();
-    db.prepare('INSERT INTO sets (id, title, desc, category, tags, source, review_status, copyright_confirmed, version, owner_id, owner_type, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)')
-      .run(newId, String(title || src.title).slice(0, 60), String(src.desc || '').slice(0, 200), String(category || src.category).slice(0, 20),
-        JSON.stringify(['官方']), 'official', 'approved', 1, 1,
-        req.auth.ownerId, req.auth.ownerType, now, now);
-    const insQ = db.prepare('INSERT INTO questions (id, set_id, idx, q, options, answer, explanation, type) VALUES (?,?,?,?,?,?,?,?)');
-    qs.forEach((q, i) => insQ.run(newId + '_q' + i, newId, i, q.q, q.options, q.answer, q.explanation, q.type));
-    auditLog(req.auth.ownerId, req.auth.ownerType, 'set_official_clone', 'set', newId, { from: src.id, title: newId, questionCount: qs.length });
-    res.json({ ok: true, id: newId, questionCount: qs.length });
-  });
 
   // 删除官方题库
   app.delete('/api/admin/official/:id', authRequired, requireRole('superadmin'), (req, res) => {

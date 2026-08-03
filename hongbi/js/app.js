@@ -425,19 +425,18 @@ document.addEventListener('click', async e => {
       break;
     }
     case 'clone-official': {
-      const setId = t.dataset.id;
-      const title = t.dataset.title;
-      location.hash = '#/official';
-      setTimeout(() => { const el = $('#clone-id'); if (el) { el.value = setId; el.scrollIntoView({ behavior: 'smooth' }); } }, 200);
+      // 移除：克隆功能已废弃，使用「升级为官方」替代
       break;
     }
     case 'do-clone-official': {
+      // 移除：克隆功能已废弃
+      break;
+    }
+    case 'upgrade-official-id': {
       const setId = $('#clone-id')?.value.trim();
-      const title = $('#clone-title')?.value.trim() || null;
-      const cat = $('#clone-cat')?.value || '常识/百科';
-      if (!setId) { toast('请输入源题库 ID', 'err'); break; }
-      try { const r = await ServerAPI.cloneOfficialSet({ setId, title, category: cat }); toast('已克隆为官方题库（' + r.questionCount + '题）'); render(); }
-      catch (e) { toast('克隆失败：' + e.message, 'err'); }
+      if (!setId) { toast('请输入题库 ID', 'err'); break; }
+      try { await ServerAPI.upgradeOfficialSet(setId); toast('已升级为官方题库 ✓'); render(); }
+      catch (e) { toast('升级失败：' + e.message, 'err'); }
       break;
     }
     case 'upgrade-official': {
